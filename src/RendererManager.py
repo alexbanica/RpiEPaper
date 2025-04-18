@@ -20,3 +20,7 @@ class RendererManager:
         Get the active renderer.
         """
         return self.renderer
+
+    def __close__(self):
+        self.renderer.__close__()
+        EPaperRenderer.shutdown()

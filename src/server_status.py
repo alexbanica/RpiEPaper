@@ -50,22 +50,29 @@ try:
     docker = None
     remote_connection_manager = None
     rpi = RpiStats()
-    renderer = RendererManager(True).get_renderer()
+    renderer_manager = RendererManager(True)
+    renderer = renderer_manager.get_renderer()
+    docker = DockerStats()
     if rpi.is_cluster_hat_on():
-        docker = DockerStats()
         remote_connection_manager = RemoteConnectionManager(docker.extract_node_hostnames())
         command_uuid = remote_connection_manager.execute_on_all_async(RPI_STATS_PYTHON_COMMAND)
+    else:
+        remote_connection_manager = RemoteConnectionManager([])
 
     # Infinite loop to update the time every second
     while True:
         try:
+            if not remote_connection_manager.update_hostnames(docker.extract_node_hostnames()):
+                command_uuid = remote_connection_manager.execute_on_all_async(RPI_STATS_PYTHON_COMMAND)
+
             logging.info("Updating display...")
             renderer.refresh()
             coords = renderer.draw_text(rpi.get_current_time(), NULL_COORDS, RENDER_ALIGN_RIGHT)
             if not rpi.is_cluster_hat_on():
+                coords = renderer.draw_text(rpi.render_cluster_hat_status(), coords)
                 coords = renderer.draw_text(rpi.__str__(), coords)
             else:
-                coords = renderer.draw_text("ClusterHat info here")
+                coords = renderer.draw_text(rpi.render_cluster_hat_status())
                 coords = renderer.draw_new_section(coords)
                 coords = draw_docker_stats(renderer, docker, rpi, remote_connection_manager, command_uuid, coords)
                 renderer.draw_new_section(coords)
@@ -75,7 +82,7 @@ try:
 
         except KeyboardInterrupt:
             logging.info("Interrupted by user. Exiting...")
-            renderer.__close__()
+            renderer_manager.__close__()
             if rpi.is_cluster_hat_on():
                 docker.__close__()
                 remote_connection_manager.__close__()

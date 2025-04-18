@@ -42,7 +42,7 @@ class DockerStats:
             return [node for node in self.nodes if node.attrs.get('Status', {}).get('State') == state]
 
     def extract_node_hostnames(self, node_state: str = "ready") -> list[Any]:
-        return natsorted([node.attrs.get('Description', {}).get('Hostname') for node in self._get_nodes_by_state(node_state)]);
+        return natsorted([node.attrs.get('Description', {}).get('Hostname') for node in self._get_nodes_by_state(node_state)])
 
     def extract_service_names(self) -> list[str]:
         return natsorted([service.name for service in self.services])

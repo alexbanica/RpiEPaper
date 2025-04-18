@@ -1,6 +1,8 @@
 import logging
 import time
 import os
+import subprocess
+import re
 
 RPI_TIME_FORMAT = "%H:%M"
 RPI_STATS_PYTHON_COMMAND = "PYTHONPATH=/mnt/data/ePaperHat/src python3 -c 'from RpiStats import RpiStats; print(RpiStats())'"
@@ -158,11 +160,38 @@ class RpiStats:
             logging.debug(f"Error retrieving disk space usage: {e}")
             return 0.0
 
-    def is_cluster_hat_on(self) -> bool:
-        return True
+    def _get_clusterhat_status(self) -> tuple[bool, bool, int]:
+        try:
+            # Execute the command and decode the output to string
+            output = subprocess.check_output(['clusterhat', 'status'], text=True)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(f'Failed to run clusterhat status: {e}')
 
-    def is_cluster_hat_fan_on(self) -> bool:
-        return True
+        # Prepare storage for our keys of interest
+        hat_alert = 0
+        px_count = 1
+
+        # Parse the output line by line
+        for line in output.splitlines():
+            # Remove potential whitespaces
+            line = line.strip()
+            if line.startswith('hat_alert:'):
+                hat_alert = int(line.split(':')[1])
+            match = re.match(r'p\d+:(\d+)', line)
+            if match and match.group(1) == '1':
+                px_count += 1
+
+        return  True if px_count > 1 else False, True if hat_alert == 1 else False, px_count
+
+
+    def is_cluster_hat_on(self) -> bool:
+        clusterhat, _, _ = self._get_clusterhat_status()
+        return clusterhat
+
+    def render_cluster_hat_status(self) -> str:
+        clusterhat, hat_alert, px_count = self._get_clusterhat_status()
+
+        return f"Cluster: {'ON' if clusterhat else 'OFF'} - Alert: {'Y' if hat_alert else 'N'} - Nodes: {px_count}/5"
 
     def __str__(self) -> str:
         cpu_usage = self.get_cpu_usage_percentage()

@@ -2,7 +2,7 @@ import sys
 import os
 
 from AbstractRenderer import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
-from waveshare_epd import epd2in7_V2
+from waveshare_epd import epd2in7b_V2
 from PIL import Image, ImageDraw, ImageFont
 import time
 
@@ -19,7 +19,7 @@ COLOR_BLACK=0x00
 
 class EPaperRenderer(AbstractRenderer):
     def __init__(self):
-        self.epd = epd2in7_V2.EPD()
+        self.epd = epd2in7b_V2.EPD()
         self.fontType = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), DEFAULT_FONT_SIZE)
         self.Himage = Image.new('1', (self.epd.height, self.epd.width), COLOR_WHITE)
         self.draw = ImageDraw.Draw(self.Himage)
@@ -179,5 +179,6 @@ class EPaperRenderer(AbstractRenderer):
 
         return coords
 
-
-
+    @staticmethod
+    def shutdown():
+        epd2in7b_V2.epdconfig.module_exit(cleanup=True)

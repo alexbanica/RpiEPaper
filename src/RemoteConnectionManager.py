@@ -12,6 +12,7 @@ EXTERNAL_UPDATE_INTERVAL_S = 5
 @dataclass
 class AsyncCommandCacheDto:
     uuid: str
+    command: str
     running: bool
     results: dict[str, str]
     thread: threading.Thread
@@ -20,9 +21,6 @@ class AsyncCommandCacheDto:
 class AsyncCommands:
     def __init__(self):
         self.commands = {}
-    def add_command(self, command: AsyncCommandCacheDto) -> str:
-        self.commands[command.uuid] = command
-        return command.uuid
 
     def __getitem__(self, uuid: str) -> AsyncCommandCacheDto:
         return self.commands.get(uuid)
@@ -94,10 +92,11 @@ class RemoteConnectionManager:
             results[hostname] = self.execute(hostname, command)
         return results
 
-    def execute_on_all_async(self, command: str) -> str:
-        command_uuid = str(uuid.uuid5(uuid.NAMESPACE_DNS, command))
+    def execute_on_all_async(self, command: str, command_uuid: str = None) -> str:
+        command_uuid = command_uuid if command_uuid is not None else str(uuid.uuid5(uuid.NAMESPACE_DNS, command))
         self.async_commands[command_uuid] = AsyncCommandCacheDto(
             command_uuid,
+            command,
             True,
             {},
             threading.Thread(target=self._command_update_task, args=(command_uuid, command, None))
@@ -126,5 +125,34 @@ class RemoteConnectionManager:
                 logging.error(f"Error gathering results for command %s: %s", command, e)
             finally:
                 time.sleep(EXTERNAL_UPDATE_INTERVAL_S)
+
+    def _are_hostnames_changed(self, new_hostnames: list[str]) -> bool:
+        if len(new_hostnames) != len(self.clients):
+            return True
+        return not all(hostname in self.clients for hostname in new_hostnames)
+
+    def update_hostnames(self, hostnames: list[str]) -> bool:
+        if not self._are_hostnames_changed(hostnames):
+            return True
+
+        logging.info(f"Reconnecting to remote hosts %s", hostnames)
+        self.async_commands.__close__()
+        self._connect_all(hostnames)
+        old_commands = self.async_commands
+        self.async_commands = AsyncCommands()
+        if old_commands.__len__() == 0:
+            return False
+
+        for command in old_commands:
+            self.execute_on_all_async(command.command, command.uuid)
+
+        logging.info(f"Connected to {len(self.clients)} remote hosts")
+
+        #         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        # File "/mnt/data/ePaperHat/src/RemoteConnectionManager.py", line 147, in update_hostnames
+        # self.execute_on_all_async(command.command, command.uuid)
+        # ^^^^^^^^^^^^^^^
+        # AttributeError: 'NoneType' object has no attribute 'command'
+        return True
 
 
