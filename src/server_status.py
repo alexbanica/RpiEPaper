@@ -3,23 +3,25 @@
 import sys
 import os
 import time
+import logging
 
 picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources')
 libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
 if os.path.exists(libdir):
     sys.path.append(libdir)
 
-import logging
 from DockerStats import DockerStats
-from RpiStats import RpiStats
+from RpiStats import RpiStats, RPI_STATS_PYTHON_COMMAND
 from RemoteConnectionManager import RemoteConnectionManager
 from RendererManager import RendererManager
 from AbstractRenderer import AbstractRenderer, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER, NULL_COORDS, RENDER_ALIGN_LEFT
+from typing import Optional
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [%(threadName)s]: %(message)s")
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] [%(threadName)s]: %(message)s")
+DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 5
 
 
-def draw_docker_stats(renderer: AbstractRenderer, docker: DockerStats, rpi: RpiStats, remotes: RemoteConnectionManager, prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
+def draw_docker_stats(renderer: AbstractRenderer, docker: DockerStats, rpi: RpiStats, remotes: RemoteConnectionManager, command_uuid: Optional[str], prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
     if docker is None:
         return prev_coords
 
@@ -28,7 +30,7 @@ def draw_docker_stats(renderer: AbstractRenderer, docker: DockerStats, rpi: RpiS
     renderer.draw_text(f"Nodes: {','.join(docker.extract_node_hostnames())}", stats_coords, RENDER_ALIGN_LEFT)
     coords = renderer.draw_text(f"{docker.count_nodes_by_state()}/{docker.count_all_nodes()}", stats_coords, RENDER_ALIGN_RIGHT)
 
-    results = remotes.execute_on_all("PYTHONPATH=/mnt/data/ePaperHat/src python3 -c 'from RpiStats import RpiStats; print(RpiStats())'")
+    results = remotes.get_async_results(command_uuid)
     for hostname, stats in results.items():
         if hostname != rpi.get_hostname():
             coords = renderer.draw_text(f"{stats} - (R)", coords, RENDER_ALIGN_LEFT)
@@ -44,14 +46,15 @@ def draw_docker_stats(renderer: AbstractRenderer, docker: DockerStats, rpi: RpiS
 
 try:
     logging.info("Raspberry Pi Status display. Press Ctrl+C to exit.")
-
-    rpi = RpiStats()
+    command_uuid = None
     docker = None
     remote_connection_manager = None
+    rpi = RpiStats()
     renderer = RendererManager(True).get_renderer()
     if rpi.is_cluster_hat_on():
         docker = DockerStats()
         remote_connection_manager = RemoteConnectionManager(docker.extract_node_hostnames())
+        command_uuid = remote_connection_manager.execute_on_all_async(RPI_STATS_PYTHON_COMMAND)
 
     # Infinite loop to update the time every second
     while True:
@@ -64,11 +67,11 @@ try:
             else:
                 coords = renderer.draw_text("ClusterHat info here")
                 coords = renderer.draw_new_section(coords)
-                coords = draw_docker_stats(renderer, docker, rpi, remote_connection_manager, coords)
+                coords = draw_docker_stats(renderer, docker, rpi, remote_connection_manager, command_uuid, coords)
                 renderer.draw_new_section(coords)
 
             renderer.draw_apply()
-            time.sleep(5)
+            time.sleep(DEFAULT_DISPLAY_UPDATE_INTERVAL_S)
 
         except KeyboardInterrupt:
             logging.info("Interrupted by user. Exiting...")

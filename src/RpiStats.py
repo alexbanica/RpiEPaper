@@ -3,6 +3,7 @@ import time
 import os
 
 RPI_TIME_FORMAT = "%H:%M"
+RPI_STATS_PYTHON_COMMAND = "PYTHONPATH=/mnt/data/ePaperHat/src python3 -c 'from RpiStats import RpiStats; print(RpiStats())'"
 
 class RpiStats:
     def __init__(self):
