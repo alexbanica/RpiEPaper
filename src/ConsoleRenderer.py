@@ -1,6 +1,7 @@
 from AbstractRenderer import AbstractRenderer
-import logging
 
+import logging
+import time
 from AbstractRenderer import NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
 
 
@@ -96,6 +97,7 @@ class ConsoleRenderer(AbstractRenderer):
         Logs a loading message.
         """
         self.logger.info("Loading...")
+        time.sleep(5)
 
     def draw_apply(self):
         pass

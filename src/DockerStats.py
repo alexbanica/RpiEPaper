@@ -65,6 +65,14 @@ class DockerStats:
             finally:
                 time.sleep(DOCKER_UPDATE_INTERVAL_S)
 
+    def is_busy(self) -> bool:
+        if len(self.nodes) <= 0:
+            return True
+        if len(self.nodes) <= 0:
+            return True
+
+        return False
+
     def __close__(self):
         self.running = False
         self.thread.join()

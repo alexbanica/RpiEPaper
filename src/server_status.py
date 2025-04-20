@@ -5,8 +5,6 @@ import os
 import time
 import logging
 
-from src.ServerStatusArgumentParser import ServerStatusArgumentParser, ARG_RENDERER_TYPE_CONSOLE
-
 picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources')
 libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
 if os.path.exists(libdir):
@@ -18,6 +16,7 @@ from RemoteConnectionManager import RemoteConnectionManager
 from RendererManager import RendererManager
 from AbstractRenderer import AbstractRenderer, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER, NULL_COORDS, RENDER_ALIGN_LEFT
 from typing import Optional
+from ServerStatusArgumentParser import ServerStatusArgumentParser, ARG_RENDERER_TYPE_CONSOLE
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] [%(threadName)s]: %(message)s")
 DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 1
@@ -45,6 +44,15 @@ def draw_docker_stats(renderer: AbstractRenderer, docker: DockerStats, rpi: RpiS
 
     return coords
 
+def _is_busy(rpi: RpiStats, docker:DockerStats, remote_connection_manager:RemoteConnectionManager) -> bool:
+    if not rpi.is_cluster_hat_on():
+        return False
+    if docker.is_busy():
+        return True
+    if remote_connection_manager.is_busy():
+        return True
+    return False
+
 try:
     logging.info("Server Status display. Press Ctrl+C to exit.")
     args = ServerStatusArgumentParser.parse()
@@ -54,11 +62,18 @@ try:
     docker = DockerStats()
     remote_connection_manager = RemoteConnectionManager([])
     command_uuid = remote_connection_manager.attach_command(RPI_STATS_PYTHON_COMMAND)
+    remote_connection_manager.execute_on_all_async(command_uuid)
 
     # Infinite loop to update the time every second
     while True:
         try:
             remote_connection_manager.update_hostnames(docker.extract_node_hostnames())
+
+            if _is_busy(rpi, docker, remote_connection_manager):
+                logging.debug("Docker or remote connection busy. Waiting for completion...")
+                renderer.draw_loading()
+                continue
+
             logging.info("Updating display...")
             renderer.refresh()
             coords = renderer.draw_text(rpi.get_current_time(), NULL_COORDS, RENDER_ALIGN_RIGHT)
