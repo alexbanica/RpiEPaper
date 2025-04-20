@@ -5,6 +5,8 @@ import os
 import time
 import logging
 
+from src.ServerStatusArgumentParser import ServerStatusArgumentParser, ARG_RENDERER_TYPE_CONSOLE
+
 picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources')
 libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
 if os.path.exists(libdir):
@@ -19,7 +21,6 @@ from typing import Optional
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] [%(threadName)s]: %(message)s")
 DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 1
-
 
 def draw_docker_stats(renderer: AbstractRenderer, docker: DockerStats, rpi: RpiStats, remotes: RemoteConnectionManager, command_uuid: Optional[str], prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
     if docker is None:
@@ -45,9 +46,10 @@ def draw_docker_stats(renderer: AbstractRenderer, docker: DockerStats, rpi: RpiS
     return coords
 
 try:
-    logging.info("Raspberry Pi Status display. Press Ctrl+C to exit.")
+    logging.info("Server Status display. Press Ctrl+C to exit.")
+    args = ServerStatusArgumentParser.parse()
     rpi = RpiStats()
-    renderer_manager = RendererManager(True)
+    renderer_manager = RendererManager(args.renderer == ARG_RENDERER_TYPE_CONSOLE)
     renderer = renderer_manager.get_renderer()
     docker = DockerStats()
     remote_connection_manager = RemoteConnectionManager([])
@@ -62,7 +64,7 @@ try:
             coords = renderer.draw_text(rpi.get_current_time(), NULL_COORDS, RENDER_ALIGN_RIGHT)
             if not rpi.is_cluster_hat_on():
                 coords = renderer.draw_text(rpi.render_cluster_hat_status(), coords)
-                coords = renderer.draw_text(rpi.__str__(), coords)
+                coords = renderer.draw_text(str(rpi), coords)
             else:
                 coords = renderer.draw_text(rpi.render_cluster_hat_status())
                 coords = renderer.draw_new_section(coords)
