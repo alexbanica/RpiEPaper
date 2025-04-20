@@ -6,16 +6,16 @@ from typing import Optional
 import paramiko
 import time
 import threading
-from mixins import concurent_safe_dict
+from natsort import natsorted
 
-EXTERNAL_UPDATE_INTERVAL_S = 5
+EXTERNAL_UPDATE_INTERVAL_S = 2
 
 @dataclass
 class AsyncCommandCacheDto:
     uuid: str
     command: str
     running: bool
-    results: concurent_safe_dict[str, str]
+    results: dict[str, str]
     thread: threading.Thread
 
 @dataclass
@@ -39,23 +39,18 @@ class AsyncCommands:
     def values(self):
         return self.commands.values()
 
-    def close(self, command_uuid: Optional[str] = None) -> None:
-        if command_uuid is None:
-            for command in self.commands.values():
-                command.running = False
-                command.results = concurent_safe_dict()
-            return
-
-        if command_uuid not in self.commands:
-            return
-        self.commands[command_uuid].running = False
-        self.commands[command_uuid].command.results = concurent_safe_dict()
+    def close(self) -> None:
+        for command in self.commands.values():
+            command.running = False
+            command.results = dict()
+        for command in self.commands.values():
+            command.thread.join()
 
     def remove_result(self, key: str) -> None:
         for command in self.values():
             if key not in command.results:
                 continue
-            del command.results[key]
+            command.results.pop(key)
 
     def __close__(self) -> None:
         logging.debug("Closing async commands update threads, stopping...")
@@ -65,7 +60,8 @@ class RemoteConnectionManager:
     def __init__(self, hostnames:list[str], username: str = "alexbanica", ssh_key_path: str = "/home/alexbanica/.ssh/id_rsa"):
         self.username = username
         self.ssh_key_path = ssh_key_path
-        self.clients = concurent_safe_dict()
+        self.lock = threading.Lock()
+        self.clients = dict()
         self._connect_all(hostnames)
         self.async_commands = AsyncCommands()
         self.is_update_processing = False
@@ -104,13 +100,14 @@ class RemoteConnectionManager:
     def _connect_all(self, hostnames: list[str]) -> None:
         if len(self.clients) > len(hostnames):
             logging.debug("Removing disconnected clients... %s, %s", self.clients.keys(), hostnames)
-            for hostname in self.clients.keys():
-                if hostname not in hostnames:
-                    self.__remove_client(hostname)
+            active_client_hostnames = list(self.clients.keys())
+            for active_client_hostname in active_client_hostnames:
+                if active_client_hostname not in hostnames:
+                    self.__remove_client(active_client_hostname)
 
-        for hostname in hostnames:
-            if hostname not in self.clients or self._is_ssh_client_closed(self.clients[hostname]):
-                self.clients.setdefault(hostname, self._connect(hostname))
+        for active_client_hostname in hostnames:
+            if active_client_hostname not in self.clients or self._is_ssh_client_closed(self.clients[active_client_hostname]):
+                self.clients.setdefault(active_client_hostname, self._connect(active_client_hostname))
 
     def __close__(self) -> None:
         self.async_commands.__close__()
@@ -144,22 +141,23 @@ class RemoteConnectionManager:
 
     def _execute_on_all(self, command: str) -> dict[str, str]:
         results = {}
-        for hostname in self.clients.keys():
+        active_client_hostnames = list(self.clients.keys())
+        for hostname in active_client_hostnames:
             try:
                 results[hostname] = self._execute(hostname, command)
             except Exception as e:
                 logging.error(f"Error executing command on host %s: %s", hostname, e)
-                del results[hostname]
         return results
 
     def execute_on_all_async(self, command_uuid: str = None) -> str:
         self.async_commands[command_uuid].thread.start()
 
-    def get_async_results(self, uuid: Optional[str]) -> dict[str, str]:
-        if uuid not in self.async_commands:
+    def get_async_results(self, command_uuid: Optional[str]) -> dict[str, str]:
+        if command_uuid not in self.async_commands:
             return {}
 
-        return self.async_commands[uuid].results
+        results = self.async_commands[command_uuid].results
+        return {k: results[k] for k in natsorted(results.keys())}
 
     def _command_update_task(self, command_uuid) -> None:
         if command_uuid not in self.async_commands:
@@ -169,12 +167,14 @@ class RemoteConnectionManager:
         logging.debug(f"Command %s [%s] results update thread is starting", command, uuid)
         while self.async_commands[command_uuid].running:
             try:
+                self.lock.acquire()
                 self.async_commands[command_uuid].results = self._execute_on_all(command)
                 logging.debug("Updated results for command %s", command)
             except KeyboardInterrupt:
                 logging.warning("Update command results interrupted by user")
                 self.async_commands[command_uuid].running = False
             finally:
+                self.lock.release()
                 time.sleep(EXTERNAL_UPDATE_INTERVAL_S)
         logging.debug(f"Command %s [%s] results update thread has finished", command, command_uuid)
 
@@ -185,13 +185,14 @@ class RemoteConnectionManager:
 
     def update_hostnames(self, hostnames: list[str]) -> None:
         if not self._are_hostnames_changed(hostnames) or self.is_update_processing:
+            logging.debug("Hostnames are not changed [%s][%s]. Skipping update...", self._are_hostnames_changed(hostnames), self.is_update_processing)
             return
 
         self.is_update_processing = True
-        thread = threading.Thread(target=self._update_hostnames, kwargs={'hostnames': hostnames}, daemon=True)
+        thread = threading.Thread(target=self._update_hostnames_task, kwargs={'hostnames': hostnames}, daemon=True)
         thread.start()
 
-    def _update_hostnames(self, hostnames: list[str]) -> None:
+    def _update_hostnames_task(self, hostnames: list[str]) -> None:
         logging.info(f"Reconnecting to remote hosts %s", hostnames)
         self._connect_all(hostnames)
         logging.info(f"Connected to {len(self.clients)} remote hosts")
