@@ -3,9 +3,16 @@ import time
 import os
 import subprocess
 import re
+from dataclasses import dataclass
 
 RPI_TIME_FORMAT = "%H:%M"
 RPI_STATS_PYTHON_COMMAND = "PYTHONPATH=/mnt/data/ePaperHat/src python3 -c 'from RpiStats import RpiStats; print(RpiStats())'"
+
+@dataclass
+class ClusterHatStatus:
+    is_on: bool
+    has_alert: bool
+    active_node_count: int
 
 class RpiStats:
     def __init__(self):
@@ -160,7 +167,7 @@ class RpiStats:
             logging.debug(f"Error retrieving disk space usage: {e}")
             return 0.0
 
-    def _get_clusterhat_status(self) -> tuple[bool, bool, int]:
+    def _get_clusterhat_status(self) -> ClusterHatStatus:
         try:
             # Execute the command and decode the output to string
             output = subprocess.check_output(['clusterhat', 'status'], text=True)
@@ -181,17 +188,16 @@ class RpiStats:
             if match and match.group(1) == '1':
                 px_count += 1
 
-        return  True if px_count > 1 else False, True if hat_alert == 1 else False, px_count
-
+        return ClusterHatStatus(px_count > 1, hat_alert == 1, px_count)
 
     def is_cluster_hat_on(self) -> bool:
-        clusterhat, _, _ = self._get_clusterhat_status()
-        return clusterhat
+        status = self._get_clusterhat_status()
+        return status.is_on
 
     def render_cluster_hat_status(self) -> str:
-        clusterhat, hat_alert, px_count = self._get_clusterhat_status()
+        status = self._get_clusterhat_status()
 
-        return f"Cluster: {'ON' if clusterhat else 'OFF'} - Alert: {'Y' if hat_alert else 'N'} - Nodes: {px_count}/5"
+        return f"Cluster: {'ON' if status.is_on else 'OFF'} - Alert: {'Y' if status.has_alert else 'N'} - Nodes: {status.active_node_count}/5"
 
     def __str__(self) -> str:
         cpu_usage = self.get_cpu_usage_percentage()

@@ -18,7 +18,7 @@ from AbstractRenderer import AbstractRenderer, RENDER_ALIGN_RIGHT, RENDER_ALIGN_
 from typing import Optional
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] [%(threadName)s]: %(message)s")
-DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 5
+DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 1
 
 
 def draw_docker_stats(renderer: AbstractRenderer, docker: DockerStats, rpi: RpiStats, remotes: RemoteConnectionManager, command_uuid: Optional[str], prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
@@ -46,25 +46,17 @@ def draw_docker_stats(renderer: AbstractRenderer, docker: DockerStats, rpi: RpiS
 
 try:
     logging.info("Raspberry Pi Status display. Press Ctrl+C to exit.")
-    command_uuid = None
-    docker = None
-    remote_connection_manager = None
     rpi = RpiStats()
     renderer_manager = RendererManager(True)
     renderer = renderer_manager.get_renderer()
     docker = DockerStats()
-    if rpi.is_cluster_hat_on():
-        remote_connection_manager = RemoteConnectionManager(docker.extract_node_hostnames())
-        command_uuid = remote_connection_manager.execute_on_all_async(RPI_STATS_PYTHON_COMMAND)
-    else:
-        remote_connection_manager = RemoteConnectionManager([])
+    remote_connection_manager = RemoteConnectionManager([])
+    command_uuid = remote_connection_manager.attach_command(RPI_STATS_PYTHON_COMMAND)
 
     # Infinite loop to update the time every second
     while True:
         try:
-            if not remote_connection_manager.update_hostnames(docker.extract_node_hostnames()):
-                command_uuid = remote_connection_manager.execute_on_all_async(RPI_STATS_PYTHON_COMMAND)
-
+            remote_connection_manager.update_hostnames(docker.extract_node_hostnames())
             logging.info("Updating display...")
             renderer.refresh()
             coords = renderer.draw_text(rpi.get_current_time(), NULL_COORDS, RENDER_ALIGN_RIGHT)
