@@ -6,7 +6,7 @@ import threading
 import time
 from natsort import natsorted
 
-DOCKER_UPDATE_INTERVAL_S = 5
+DOCKER_UPDATE_INTERVAL_S = 1
 class DockerStats:
     def __init__(self):
         self.client = docker.from_env()

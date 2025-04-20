@@ -16,10 +16,10 @@ from RemoteConnectionManager import RemoteConnectionManager
 from RendererManager import RendererManager
 from AbstractRenderer import AbstractRenderer, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER, NULL_COORDS, RENDER_ALIGN_LEFT
 from typing import Optional
-from ServerStatusArgumentParser import ServerStatusArgumentParser, ARG_RENDERER_TYPE_CONSOLE
+from ServerStatusArgumentParser import ServerStatusArgumentParser, ARG_RENDERER_TYPE_CONSOLE, ARG_RENDERER_TYPE_EPAPER
 
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s [%(levelname)s] [%(threadName)s]: %(message)s")
-DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 1
+DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 5
 
 def draw_docker_stats(renderer: AbstractRenderer, docker: DockerStats, rpi: RpiStats, remotes: RemoteConnectionManager, command_uuid: Optional[str], prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
     if docker is None:
@@ -64,27 +64,23 @@ try:
     command_uuid = remote_connection_manager.attach_command(RPI_STATS_PYTHON_COMMAND)
     remote_connection_manager.execute_on_all_async(command_uuid)
 
-    # Infinite loop to update the time every second
     while True:
         try:
+            renderer.refresh()
             remote_connection_manager.update_hostnames(docker.extract_node_hostnames())
-
             if _is_busy(rpi, docker, remote_connection_manager):
                 logging.debug("Docker or remote connection busy. Waiting for completion...")
                 renderer.draw_loading()
-                continue
-
-            logging.info("Updating display...")
-            renderer.refresh()
-            coords = renderer.draw_text(rpi.get_current_time(), NULL_COORDS, RENDER_ALIGN_RIGHT)
-            if not rpi.is_cluster_hat_on():
-                coords = renderer.draw_text(rpi.render_cluster_hat_status(), coords)
-                coords = renderer.draw_text(str(rpi), coords)
             else:
-                coords = renderer.draw_text(rpi.render_cluster_hat_status())
-                coords = renderer.draw_new_section(coords)
-                coords = draw_docker_stats(renderer, docker, rpi, remote_connection_manager, command_uuid, coords)
-                renderer.draw_new_section(coords)
+                coords = renderer.draw_text(rpi.get_current_time() + renderer.draw_pagination(), NULL_COORDS, RENDER_ALIGN_RIGHT)
+                if not rpi.is_cluster_hat_on():
+                    coords = renderer.draw_text(rpi.render_cluster_hat_status(), coords)
+                    coords = renderer.draw_text(str(rpi), coords)
+                else:
+                    coords = renderer.draw_text(rpi.render_cluster_hat_status())
+                    coords = renderer.draw_new_section(coords)
+                    coords = draw_docker_stats(renderer, docker, rpi, remote_connection_manager, command_uuid, coords)
+                    renderer.draw_new_section(coords)
 
             renderer.draw_apply()
             time.sleep(DEFAULT_DISPLAY_UPDATE_INTERVAL_S)

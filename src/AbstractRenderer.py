@@ -42,3 +42,15 @@ class AbstractRenderer(ABC):
     def draw_paragraph(self, strings: list[str], prev_coords: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
         pass
 
+    def get_mixin(self):
+        pass
+
+    def get_current_page(self) -> int:
+        pass
+
+    def get_total_pages(self) -> int:
+        pass
+
+    def draw_pagination(self):
+        return " - p"+str(self.get_current_page()) + "/" + str(self.get_total_pages())
+

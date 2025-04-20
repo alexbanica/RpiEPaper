@@ -126,3 +126,12 @@ class ConsoleRenderer(AbstractRenderer):
 
         return 0, prev_coords[1], self.line_width, y2
 
+    def get_mixin(self):
+        return None
+
+    def get_current_page(self) -> int:
+        return 1
+
+    def get_total_pages(self) -> int:
+        return 1
+

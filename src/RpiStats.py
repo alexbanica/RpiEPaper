@@ -207,4 +207,4 @@ class RpiStats:
         hdd_usage = self.get_used_disk_percentage()
         hostname = self.get_hostname().upper()
 
-        return  f"{hostname} - C: {cpu_usage:3.0f}% R: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C {'(F)' if is_fan_on else ''}"
+        return  f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C {'[F]' if is_fan_on else ''}"

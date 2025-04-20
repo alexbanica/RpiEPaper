@@ -2,11 +2,12 @@ import sys
 import os
 
 from AbstractRenderer import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
-from waveshare_epd import epd2in7b_V2
+from waveshare_epd import epd2in7_V2
 from PIL import Image, ImageDraw, ImageFont
-import time
 
-picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'pic')
+from ePaper import ePaper
+
+picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources')
 libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
 if os.path.exists(libdir):
     sys.path.append(libdir)
@@ -19,10 +20,11 @@ COLOR_BLACK=0x00
 
 class EPaperRenderer(AbstractRenderer):
     def __init__(self):
-        self.epd = epd2in7b_V2.EPD()
+        self.epd = epd2in7_V2.EPD()
         self.fontType = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), DEFAULT_FONT_SIZE)
         self.Himage = Image.new('1', (self.epd.height, self.epd.width), COLOR_WHITE)
         self.draw = ImageDraw.Draw(self.Himage)
+        self.mixin = ePaper()
         self._init()
 
     def _init(self):
@@ -73,6 +75,7 @@ class EPaperRenderer(AbstractRenderer):
         self.epd.init()
         self.epd.Clear()
         self.epd.sleep()
+        self.mixin.__close__()
 
     def draw_area(self, x: int, y: int, width: int, height: int, color=None):
         """
@@ -84,69 +87,18 @@ class EPaperRenderer(AbstractRenderer):
     def refresh(self):
         self._clear_specific_area((0, 0, self.epd.height, self.epd.width))
 
-    def draw_loading(self, font_size: int = DEFAULT_FONT_SIZE):
-        """
-            Draws a full-screen loading circle with "Loading..." text in the center of the screen.
-
-            Args:
-                font_size (int): Font size for the "Loading..." text. Default is the renderer's font size.
-            """
-        # Step 1: Initialize font
-        loading_font = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), font_size)
-
-        # Step 2: Create a blank full-screen canvas
-        self.Himage = Image.new('1', (self.epd.height, self.epd.width), COLOR_WHITE)
-        self.draw = ImageDraw.Draw(self.Himage)
-
-        # Step 3: Prepare variables for loading animation
-        center_x = self.epd.height // 2
+    def draw_loading(self):
         center_y = self.epd.width // 2
+        text_y_offset = 30
 
-        circle_radius = 30  # Radius of the loading circle
-        text_y_offset = 40  # Distance from the circle center to the text
-        circle_step_angle = 30  # Step for rotating the circle
-        angle = 0  # Current rotation angle
-
-        # Step 4: Animation - Rotate the circle
-        for _ in range(12):  # Rotate in 12 steps (~360 degrees in total)
-            # Clear the screen for the next frame
-            self.epd.Clear()
-
-            # Background (white screen)
-            self.draw.rectangle((0, 0, self.epd.height, self.epd.width), fill=COLOR_WHITE)
-
-            # Draw the loading circle (only partially)
-            for i in range(12):  # Draw the 12 segments of the circle
-                start_angle = angle + i * circle_step_angle
-                end_angle = start_angle + circle_step_angle - 5  # Gap between segments
-                self.draw.arc(
-                    [center_x - circle_radius, center_y - circle_radius, center_x + circle_radius,
-                     center_y + circle_radius],
-                    start=start_angle,
-                    end=end_angle,
-                    fill=COLOR_BLACK,
-                    width=3  # Width of the arc
-                )
-
-            # Draw the "Loading..." text
-            text_width = self.draw.textlength("Loading...", font=loading_font)
-            self.draw.text(
-                ((self.epd.height - text_width) // 2, center_y + text_y_offset),
-                "Loading...",
-                font=loading_font,
-                fill=COLOR_BLACK
-            )
-
-            # Display the frame on the ePaper
-            self.epd.display_Base_color(COLOR_WHITE)
-            self.epd.display_Partial(self.epd.getbuffer(self.Himage))
-
-            # Increment angle for next frame (rotation effect)
-            angle += circle_step_angle
-
-            # Add delay for animation speed
-            time.sleep(0.1)  # ~100ms delay between frames
-
+        # Draw the "Loading..." text
+        text_width = self.draw.textlength("Loading...", font=self.fontType)
+        self.draw.text(
+            ((self.epd.height - text_width) // 2, center_y + text_y_offset),
+            "Loading...",
+            font=self.fontType,
+            fill=COLOR_BLACK
+        )
 
     def _draw_apply(self, updated_area):
         newimage = self.Himage.crop(updated_area)
@@ -181,4 +133,13 @@ class EPaperRenderer(AbstractRenderer):
 
     @staticmethod
     def shutdown():
-        epd2in7b_V2.epdconfig.module_exit(cleanup=True)
+        epd2in7_V2.epdconfig.module_exit(cleanup=True)
+
+    def get_mixin(self):
+        return self.mixin
+
+    def get_current_page(self) -> int:
+        return self.get_mixin().get_current_page()
+
+    def get_total_pages(self) -> int:
+        return self.get_mixin().get_total_pages()
