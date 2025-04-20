@@ -1,5 +1,7 @@
 import sys
 import os
+import threading
+import time
 
 from AbstractRenderer import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
 from waveshare_epd import epd2in7_V2
@@ -19,19 +21,30 @@ COLOR_WHITE=0xff
 COLOR_BLACK=0x00
 
 class EPaperRenderer(AbstractRenderer):
-    def __init__(self):
+    DEFAULT_INIT_INTERVAL = 60*60*2 # every 2 hours
+
+    def __init__(self, init_interval=DEFAULT_INIT_INTERVAL):
         self.epd = epd2in7_V2.EPD()
         self.fontType = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), DEFAULT_FONT_SIZE)
         self.Himage = Image.new('1', (self.epd.height, self.epd.width), COLOR_WHITE)
         self.draw = ImageDraw.Draw(self.Himage)
         self.mixin = ePaper()
+        self.init_interval = init_interval
         self._init()
+
+        self.init_thread = threading.Thread(target=self._run_periodic_init_task, daemon=True)
+        self.init_thread.start()
 
     def _init(self):
         self.epd.init()
         self.epd.Clear()
         self.epd.display_Base_color(COLOR_WHITE)
         self.refresh()
+
+    def _run_periodic_init_task(self):
+        while self.init_interval > 0:
+            time.sleep(self.init_interval)
+            self._init()
 
     def draw_text(self, text: str, prev_coords: tuple[int, int, int, int] = NULL_COORDS,
                   alignment: str = RENDER_ALIGN_LEFT) -> tuple[int, int, int, int]:
@@ -75,7 +88,9 @@ class EPaperRenderer(AbstractRenderer):
         self.epd.init()
         self.epd.Clear()
         self.epd.sleep()
+        self.init_interval = 0
         self.mixin.__close__()
+        self.init_thread.join()
 
     def draw_area(self, x: int, y: int, width: int, height: int, color=None):
         """

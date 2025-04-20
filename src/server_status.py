@@ -21,6 +21,15 @@ from ServerStatusArgumentParser import ServerStatusArgumentParser, ARG_RENDERER_
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] [%(threadName)s]: %(message)s")
 DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 5
 
+def draw_rpi_stats(renderer: AbstractRenderer, rpi: RpiStats, prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
+    if rpi is None:
+        return prev_coords
+    coords = renderer.draw_text("RaspberryPI Stats", prev_coords, RENDER_ALIGN_CENTER)
+    coords = renderer.draw_new_subsection(coords)
+    coords = renderer.draw_text(str(rpi), coords)
+
+    return coords
+
 def draw_docker_stats_pag_1(renderer: AbstractRenderer, docker: DockerStats, rpi: RpiStats, remotes: RemoteConnectionManager, command_uuid: Optional[str], prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
     if docker is None:
         return prev_coords
@@ -102,32 +111,25 @@ try:
                 logging.debug("Docker or remote connection busy. Waiting for completion...")
                 renderer.draw_loading()
             else:
-                coords = renderer.draw_text(rpi.get_current_time() + renderer.draw_pagination(), NULL_COORDS, RENDER_ALIGN_RIGHT)
+                renderer.draw_text(rpi.get_current_time() + renderer.draw_pagination(), NULL_COORDS, RENDER_ALIGN_RIGHT)
+                coords = renderer.draw_text(rpi.render_cluster_hat_status())
+                coords = renderer.draw_new_section(coords)
                 if not rpi.is_cluster_hat_on():
-                    coords = renderer.draw_text(rpi.render_cluster_hat_status())
-                    coords = renderer.draw_text(str(rpi), coords)
+                    coords = draw_rpi_stats(renderer, rpi, coords)
                 else:
                     if renderer.get_mixin().get_current_page() == 1:
-                        coords = renderer.draw_text(rpi.render_cluster_hat_status())
-                        coords = renderer.draw_new_section(coords)
                         coords = draw_docker_stats_pag_1(renderer, docker, rpi, remote_connection_manager, command_uuid, coords)
                         renderer.draw_new_section(coords)
                     elif renderer.get_mixin().get_current_page() == 2:
-                        coords = renderer.draw_text(rpi.render_cluster_hat_status())
-                        coords = renderer.draw_new_section(coords)
                         coords = draw_docker_stats_pag_2(renderer, docker, rpi, remote_connection_manager, command_uuid, coords)
                         renderer.draw_new_section(coords)
                     elif renderer.get_mixin().get_current_page() == 3:
-                        coords = renderer.draw_text(rpi.render_cluster_hat_status())
-                        coords = renderer.draw_new_section(coords)
                         coords = draw_docker_stats_pag_3(renderer, docker, rpi, remote_connection_manager, command_uuid, coords)
                         renderer.draw_new_section(coords)
                     elif renderer.get_mixin().get_current_page() == 4:
-                        coords = renderer.draw_text(rpi.render_cluster_hat_status())
-                        coords = renderer.draw_new_section(coords)
                         coords = draw_docker_stats_pag_4(renderer, docker, rpi, remote_connection_manager, command_uuid, coords)
                         renderer.draw_new_section(coords)
-
+                        
             renderer.draw_apply()
             time.sleep(DEFAULT_DISPLAY_UPDATE_INTERVAL_S)
 

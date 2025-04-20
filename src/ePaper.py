@@ -13,7 +13,7 @@ class ePaper:
 
         self.running = True
         self.current_page = 1
-        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread = threading.Thread(target=self._check_epaper_key_pressed_task, daemon=True)
         self.thread.start()
         logging.info("ePaper update thread [%s] started.", self.thread.name)
     
@@ -22,7 +22,7 @@ class ePaper:
         self.thread.join()
         logging.info("Thread %s: finishing", self.thread.name)
 
-    def _run(self):
+    def _check_epaper_key_pressed_task(self):
         while self.running:
             self.key1.when_pressed = lambda: setattr(self, 'current_page', 1)
             self.key2.when_pressed = lambda: setattr(self, 'current_page', 2)
