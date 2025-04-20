@@ -19,7 +19,8 @@ class ePaper:
     
     def __close__(self):
         self.running = False
-        pass
+        self.thread.join()
+        logging.info("Thread %s: finishing", self.thread.name)
 
     def _run(self):
         while self.running:

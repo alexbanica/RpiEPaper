@@ -45,6 +45,7 @@ class AsyncCommands:
             command.results = dict()
         for command in self.commands.values():
             command.thread.join()
+            logging.info("Thread %s: finishing", command.thread.name)
 
     def remove_result(self, key: str) -> None:
         for command in self.values():
