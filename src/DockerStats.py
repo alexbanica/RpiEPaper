@@ -97,7 +97,7 @@ class DockerStats:
     def extract_service_names_with_ports(self) -> list[str]:
         service_names = []
         for service in self.extract_service_details():
-            ports = [f"{port['target']}" for port in service.ports]
+            ports = [f"{port['published']}" for port in service.ports]
             service_names.append(f"{service.name}:{ports}")
 
         return service_names
