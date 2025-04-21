@@ -16,7 +16,7 @@ class ePaper:
         self.thread = threading.Thread(target=self._check_epaper_key_pressed_task, daemon=True)
         self.thread.start()
         logging.info("ePaper update thread [%s] started.", self.thread.name)
-    
+
     def __close__(self):
         self.running = False
         self.thread.join()
@@ -24,9 +24,21 @@ class ePaper:
 
     def _check_epaper_key_pressed_task(self):
         while self.running:
-            self.key1.when_pressed = lambda: setattr(self, 'current_page', 1)
-            self.key2.when_pressed = lambda: setattr(self, 'current_page', 2)
-            self.key3.when_pressed = lambda: setattr(self, 'current_page', 3)
+            def __key1_pressed():
+                logging.debug("Key 1 pressed - switching to page 1")
+                setattr(self, 'current_page', 1)
+
+            def __key2_pressed():
+                logging.debug("Key 2 pressed - switching to page 2")
+                setattr(self, 'current_page', 2)
+
+            def __key3_pressed():
+                logging.debug("Key 3 pressed - switching to page 3")
+                setattr(self, 'current_page', 3)
+
+            self.key1.when_pressed = __key1_pressed
+            self.key2.when_pressed = __key2_pressed
+            self.key3.when_pressed = __key3_pressed
             # self.key4.when_pressed = lambda: setattr(self, 'current_page', 4)
 
     def get_current_page(self):

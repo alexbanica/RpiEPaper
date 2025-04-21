@@ -1,12 +1,55 @@
 from typing import Any
-
+from datetime import datetime
 import docker
 import logging
 import threading
 import time
 from natsort import natsorted
+from dataclasses import dataclass
 
 DOCKER_UPDATE_INTERVAL_S = 1
+
+@dataclass
+class DockerServiceDetail:
+    name: str
+    id: str
+    created: str
+    updated: str
+    mode: dict
+    image: str
+    ports: list
+    replicas: int
+
+    @property
+    def image_short(self) -> str:
+        return self.image.split('@')[0] if '@' in self.image else self.image
+
+    @property
+    def ports_short(self) -> list[str]:
+        return [f"{port['published']}:{port['target']}" for port in self.ports]
+    
+    @property
+    def created_short(self):
+        if not self.created:
+            return ''
+        dt = datetime.fromisoformat(self.created.replace('Z', '+00:00'))
+        return dt.strftime('%m/%d %H:%M')
+
+    def to_list(self) -> list:
+        return [self.name, self.id, self.created, self.updated, self.mode, self.image, self.ports, self.replicas]
+    
+    def to_dict(self) -> dict:
+        return {
+            'name': self.name,
+            'id': self.id,
+            'created': self.created_short,
+            'updated': self.updated,
+            'mode': self.mode,
+            'image': self.image_short,
+            'ports': self.ports_short,
+            'replicas': self.replicas
+        }
+
 class DockerStats:
     def __init__(self):
         self.client = docker.from_env()
@@ -47,8 +90,47 @@ class DockerStats:
         return natsorted([node.attrs.get('Description', {}).get('Hostname') for node in self._get_nodes_by_state(node_state)])
 
 
-    def extract_service_names(self) -> list[str]:
-        return natsorted([service.name for service in self.services])
+    def extract_service_names_with_ports(self) -> list[str]:
+        service_names = []
+        for service in self.extract_service_details():
+            ports = [f"{port['target']}" for port in service.ports]
+            service_names.append(f"{service.name}:{ports}")
+
+        return service_names
+
+    def extract_service_details(self) -> list[DockerServiceDetail]:
+        service_details = []
+        for service in self.services:
+            ports = []
+            if 'Ports' in service.attrs.get('Endpoint', {}):
+                for port in service.attrs['Endpoint']['Ports']:
+                    ports.append({
+                        'published': port.get('PublishedPort'),
+                        'target': port.get('TargetPort'),
+                        'protocol': port.get('Protocol')
+                    })
+
+            service_detail = DockerServiceDetail(
+                name=service.name,
+                id=service.id,
+                created=service.attrs.get('CreatedAt', ''),
+                updated=service.attrs.get('UpdatedAt', ''),
+                mode=service.attrs.get('Spec', {}).get('Mode', {}),
+                image=service.attrs.get('Spec', {}).get('TaskTemplate', {}).get('ContainerSpec', {}).get('Image', ''),
+                ports=ports,
+                replicas=service.attrs.get('Spec', {}).get('Mode', {}).get('Replicated', {}).get('Replicas', 0)
+            )
+            service_details.append(service_detail)
+
+        return service_details
+
+    def get_open_ports(self) -> list[int]:
+        ports = []
+        for service in self.services:
+            if 'Ports' in service.attrs.get('Endpoint', {}):
+                for port in service.attrs['Endpoint']['Ports']:
+                    ports.append(port.get('PublishedPort'))
+        return ports
 
     def _docker_stats_update_task(self):
         logging.debug("Docker update thread is starting up")

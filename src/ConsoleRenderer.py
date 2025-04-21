@@ -103,9 +103,6 @@ class ConsoleRenderer(AbstractRenderer):
         pass
 
     def __close__(self):
-        """
-        Clears the logs (mocks closing the renderer).
-        """
         self.logger.info("Closing ConsoleRenderer")
 
     def draw_paragraph(self, strings: list[str], prev_coords: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
@@ -127,11 +124,49 @@ class ConsoleRenderer(AbstractRenderer):
         return 0, prev_coords[1], self.line_width, y2
 
     def get_mixin(self):
-        return None
+        return self
 
     def get_current_page(self) -> int:
-        return 1
+        return 2
 
     def get_total_pages(self) -> int:
         return 1
+    
+    def draw_table(self, headers:dict[str, str], data:list[dict], prev_coords: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+        # Calculate column widths based on content
+        header_keys = list(headers.keys())
+        col_widths = [len(headers[key]) for key in header_keys]
+        for row in data:
+            for i, key in enumerate(header_keys):
+                if key in row:
+                    col_widths[i] = max(col_widths[i], len(str(row[key])))
 
+        # Add padding between columns
+        padding = 2
+        total_width = sum(col_widths) + (padding * (len(headers) - 1))
+
+        # Draw headers
+        header_line = ""
+        for i, key in enumerate(header_keys):
+            header_line += headers[key].ljust(col_widths[i])
+            if i < len(header_keys) - 1:
+                header_line += " " * padding
+
+        _, _, _, y2 = prev_coords
+        coords = self.draw_text(header_line, prev_coords)
+
+        # Draw separator
+        separator = "-" * total_width
+        coords = self.draw_text(separator, coords)
+
+        # Draw data rows
+        for row in data:
+            row_line = ""
+            for i, key in enumerate(header_keys):
+                cell_value = str(row.get(key, ""))
+                row_line += cell_value.ljust(col_widths[i])
+                if i < len(header_keys) - 1:
+                    row_line += " " * padding
+            coords = self.draw_text(row_line, coords)
+
+        return coords

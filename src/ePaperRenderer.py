@@ -2,6 +2,7 @@ import sys
 import os
 import threading
 import time
+import logging
 
 from AbstractRenderer import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
 from waveshare_epd import epd2in7_V2
@@ -19,6 +20,9 @@ DEFAULT_SECTION_X_PADDING = 5
 DEFAULT_FONT_SIZE = 11
 COLOR_WHITE=0xff
 COLOR_BLACK=0x00
+
+def cleanup_epaper():
+    epd2in7_V2.epdconfig.module_exit(cleanup=True)
 
 class EPaperRenderer(AbstractRenderer):
     DEFAULT_INIT_INTERVAL = 60*60*2 # every 2 hours
@@ -91,6 +95,7 @@ class EPaperRenderer(AbstractRenderer):
         self.init_interval = 0
         self.mixin.__close__()
         self.init_thread.join()
+        logging.info("EpaperRenderer closed")
 
     def draw_area(self, x: int, y: int, width: int, height: int, color=None):
         """
@@ -148,7 +153,7 @@ class EPaperRenderer(AbstractRenderer):
 
     @staticmethod
     def shutdown():
-        epd2in7_V2.epdconfig.module_exit(cleanup=True)
+        cleanup_epaper()
 
     def get_mixin(self):
         return self.mixin
@@ -158,3 +163,88 @@ class EPaperRenderer(AbstractRenderer):
 
     def get_total_pages(self) -> int:
         return self.get_mixin().get_total_pages()
+
+
+    def draw_table(self, headers:dict[str,str], data:list[dict], prev_coords: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+        EXTERNAL_BORDER_WIDTH = 2
+        INTERNAL_BORDER_WIDTH = 1
+
+        _, _, _, start_y = prev_coords
+        start_y += DEFAULT_SECTION_Y_PADDING
+
+        # Calculate column widths
+        num_columns = len(headers)
+        available_width = self.epd.height - (2 * DEFAULT_SECTION_X_PADDING)
+        column_width = available_width // num_columns
+
+        # Draw headers
+        current_y = start_y
+
+        # Draw top border
+        self.draw.line((DEFAULT_SECTION_X_PADDING, current_y,
+                        self.epd.height - DEFAULT_SECTION_X_PADDING, current_y),
+                       fill=COLOR_BLACK, width=EXTERNAL_BORDER_WIDTH)
+
+        current_y += EXTERNAL_BORDER_WIDTH
+        header_height = DEFAULT_FONT_SIZE + 2 * DEFAULT_SECTION_Y_PADDING
+
+        # Draw header cells
+        for i, (key, header_text) in enumerate(headers.items()):
+            x = DEFAULT_SECTION_X_PADDING + (i * column_width)
+            # Draw vertical borders
+            if i == 0:  # Left border
+                self.draw.line((x, current_y - EXTERNAL_BORDER_WIDTH, x, current_y + header_height),
+                               fill=COLOR_BLACK, width=EXTERNAL_BORDER_WIDTH)
+            self.draw.line((x + column_width, current_y - EXTERNAL_BORDER_WIDTH,
+                            x + column_width, current_y + header_height),
+                           fill=COLOR_BLACK,
+                           width=EXTERNAL_BORDER_WIDTH if i == num_columns - 1 else INTERNAL_BORDER_WIDTH)
+
+            # Draw header text
+            text_width = self.draw.textlength(header_text, font=self.fontType)
+            text_x = x + (column_width - text_width) // 2
+            text_y = current_y + DEFAULT_SECTION_Y_PADDING
+            self.draw.text((text_x, text_y), header_text, font=self.fontType, fill=COLOR_BLACK)
+
+        current_y += header_height
+
+        # Draw header bottom border
+        self.draw.line((DEFAULT_SECTION_X_PADDING, current_y,
+                        self.epd.height - DEFAULT_SECTION_X_PADDING, current_y),
+                       fill=COLOR_BLACK, width=INTERNAL_BORDER_WIDTH)
+
+        # Draw data rows
+        for row in data:
+            row_height = DEFAULT_FONT_SIZE + 2 * DEFAULT_SECTION_Y_PADDING
+
+            # Draw cell contents and vertical borders
+            for i, (key, _) in enumerate(headers.items()):
+                x = DEFAULT_SECTION_X_PADDING + (i * column_width)
+                if i == 0:  # Left border
+                    self.draw.line((x, current_y, x, current_y + row_height),
+                                   fill=COLOR_BLACK, width=EXTERNAL_BORDER_WIDTH)
+                self.draw.line((x + column_width, current_y, x + column_width, current_y + row_height),
+                               fill=COLOR_BLACK,
+                               width=EXTERNAL_BORDER_WIDTH if i == num_columns - 1 else INTERNAL_BORDER_WIDTH)
+
+                # Draw cell text
+                cell = str(row.get(key, ''))
+                text_width = self.draw.textlength(cell, font=self.fontType)
+                text_x = x + (column_width - text_width) // 2
+                text_y = current_y + DEFAULT_SECTION_Y_PADDING
+                self.draw.text((text_x, text_y), cell, font=self.fontType, fill=COLOR_BLACK)
+
+            current_y += row_height
+
+            # Draw horizontal border between rows
+            self.draw.line((DEFAULT_SECTION_X_PADDING, current_y,
+                            self.epd.height - DEFAULT_SECTION_X_PADDING, current_y),
+                           fill=COLOR_BLACK, width=INTERNAL_BORDER_WIDTH)
+
+        # Draw bottom border
+        self.draw.line((DEFAULT_SECTION_X_PADDING, current_y,
+                        self.epd.height - DEFAULT_SECTION_X_PADDING, current_y),
+                       fill=COLOR_BLACK, width=EXTERNAL_BORDER_WIDTH)
+
+        return (DEFAULT_SECTION_X_PADDING, start_y,
+                self.epd.height - DEFAULT_SECTION_X_PADDING, current_y)
