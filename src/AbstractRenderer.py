@@ -43,7 +43,7 @@ class AbstractRenderer(ABC):
         pass
 
     @abstractmethod
-    def get_mixin(self):
+    def get_controller(self):
         pass
 
     @abstractmethod

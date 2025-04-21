@@ -7,7 +7,7 @@ import time
 from natsort import natsorted
 from dataclasses import dataclass
 
-DOCKER_UPDATE_INTERVAL_S = 1
+DOCKER_UPDATE_INTERVAL_S = 2
 
 @dataclass
 class DockerServiceDetail:
@@ -23,6 +23,10 @@ class DockerServiceDetail:
     @property
     def image_short(self) -> str:
         return self.image.split('@')[0] if '@' in self.image else self.image
+
+    @property
+    def image_tag(self) -> str:
+        return self.image_short.split(':')[1] if ':' in self.image_short else '-'
 
     @property
     def ports_short(self) -> list[str]:
@@ -45,7 +49,7 @@ class DockerServiceDetail:
             'created': self.created_short,
             'updated': self.updated,
             'mode': self.mode,
-            'image': self.image_short,
+            'image': self.image_tag,
             'ports': self.ports_short,
             'replicas': self.replicas
         }
@@ -156,6 +160,7 @@ class DockerStats:
         return False
 
     def __close__(self):
+        logging.debug("Closing DockerStats update thread")
         self.running = False
         self.thread.join()
         logging.info("Thread %s: finishing", self.thread.name)

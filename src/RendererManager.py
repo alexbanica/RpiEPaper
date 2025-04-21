@@ -14,6 +14,7 @@ class RendererManager:
         return self.renderer
 
     def __close__(self):
+        logging.info("Closing RendererManager")
         self.renderer.__close__()
         EPaperRenderer.shutdown()
         logging.info("RendererManager closed")

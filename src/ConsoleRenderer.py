@@ -123,11 +123,11 @@ class ConsoleRenderer(AbstractRenderer):
 
         return 0, prev_coords[1], self.line_width, y2
 
-    def get_mixin(self):
+    def get_controller(self):
         return self
 
     def get_current_page(self) -> int:
-        return 2
+        return 1
 
     def get_total_pages(self) -> int:
         return 1

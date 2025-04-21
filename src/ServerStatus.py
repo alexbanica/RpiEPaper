@@ -68,11 +68,11 @@ class ServerStatus:
 
         # Draw Docker Title
         stats_coords = renderer.draw_text("Docker Swarm Services Stats", prev_coords, RENDER_ALIGN_CENTER)
-        coords = renderer.draw_text(f"#{self.docker.count_all_services()}", stats_coords, RENDER_ALIGN_RIGHT)
+        coords = renderer.draw_text(f"#{self.docker.count_all_services()}", prev_coords, RENDER_ALIGN_RIGHT)
         services = self.docker.extract_service_details()
 
         coords = renderer.draw_table(
-            {'name': 'Name','image': 'Image','ports': 'Ports', 'replicas': "Replicas", 'created': 'Created'},
+            {'name': 'Name','image': 'Img','ports': 'Ports', 'replicas': 'R', 'created': 'Created'},
             [serviceStats.to_dict() for serviceStats in services],
             coords
         )
@@ -114,6 +114,7 @@ class ServerStatus:
 
         while self.is_running:
             try:
+                logging.debug("Updating display...")
                 renderer.refresh()
                 self.remote_connection_manager.update_hostnames(self.docker.extract_node_hostnames())
                 if self._is_busy():
@@ -126,16 +127,15 @@ class ServerStatus:
                     if not self.rpi.is_cluster_hat_on():
                         coords = self.draw_rpi_stats(renderer, coords)
                     else:
-                        if renderer.get_mixin().get_current_page() == 1:
+                        if renderer.get_controller().get_current_page() == 1:
                             coords = self.draw_docker_stats_pag_1(renderer, command_uuid, coords)
                             renderer.draw_new_section(coords)
-                        elif renderer.get_mixin().get_current_page() == 2:
-                            coords = self.draw_docker_stats_pag_2(renderer, coords)
-                            renderer.draw_new_section(coords)
-                        elif renderer.get_mixin().get_current_page() == 3:
+                        elif renderer.get_controller().get_current_page() == 2:
+                            self.draw_docker_stats_pag_2(renderer, coords)
+                        elif renderer.get_controller().get_current_page() == 3:
                             coords = self.draw_docker_stats_pag_3(renderer, coords)
                             renderer.draw_new_section(coords)
-                        elif renderer.get_mixin().get_current_page() == 4:
+                        elif renderer.get_controller().get_current_page() == 4:
                             coords = self.draw_docker_stats_pag_4(renderer, coords)
                             renderer.draw_new_section(coords)
 
@@ -145,8 +145,13 @@ class ServerStatus:
             except KeyboardInterrupt:
                 logging.info("Interrupted by user. Exiting...")
                 self.__close__()
+            except Exception as e:
+                logging.error(f"Error updating display: {e}")
+                self.__close__()
+                raise e
 
     def __close__(self):
+        logging.info("Closing Server Status")
         self.is_running = False
         self.renderer_manager.__close__()
         if self.rpi.is_cluster_hat_on():

@@ -1,7 +1,7 @@
 import sys, os
 from setuptools import setup
 
-dependencies = ['Pillow']
+dependencies = ['Pillow', 'gpiozero', 'docker', 'natsort', 'paramiko']
 
 if os.path.exists('/sys/bus/platform/drivers/gpiomem-bcm2835'):
     dependencies += ['RPi.GPIO', 'spidev']
@@ -11,11 +11,21 @@ else:
     dependencies += ['Jetson.GPIO']
 
 setup(
-    name='waveshare-epd',
-    description='Waveshare e-Paper Display',
-    author='Waveshare',
-    package_dir={'': 'lib'},
-    packages=['waveshare_epd'],
+    name='server-status-display',
+    version='1.0.0',
+    description='Server Status Display for Raspberry Pi with e-Paper Display',
+    long_description='A monitoring system that displays server statistics, Docker swarm information, and system metrics on an e-Paper display',
+    author='Alex Banica',
+    author_email='info@waveshare.com',
+    python_requires='>=3.9',
+    package_dir={'': 'src'},
+    packages=['server_status'],
     install_requires=dependencies,
+    classifiers=[
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Developers',
+        'Programming Language :: Python :: 3.9',
+        'Operating System :: POSIX :: Linux',
+        'Topic :: System :: Monitoring',
+    ],
 )
-
