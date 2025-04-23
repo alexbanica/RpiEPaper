@@ -23,12 +23,12 @@ class AbstractRenderer(ABC):
         pass
 
     @abstractmethod
+    def hard_refresh(self) -> None:
+        pass
+
+    @abstractmethod
     def draw_loading(self):
         pass
-
-    def __close__(self):
-        pass
-
 
     @abstractmethod
     def draw_area(self, x: int, y: int, width: int, height: int, color=None):

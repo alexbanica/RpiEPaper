@@ -8,10 +8,6 @@ from AbstractRenderer import NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT,
 class ConsoleRenderer(AbstractRenderer):
 
     def __init__(self):
-        """
-        Initializes the ConsoleRenderer.
-        Sets up logging for console output.
-        """
         self.logger = logging.getLogger("ConsoleRenderer")
         logging.basicConfig(level=logging.INFO)  # Configure logging level
         self.section_delimiter = '=' * 50  # Delimiter for new sections
@@ -20,17 +16,6 @@ class ConsoleRenderer(AbstractRenderer):
 
     def draw_text(self, text: str, prev_coords: tuple[int, int, int, int] = NULL_COORDS,
                   alignment: str = RENDER_ALIGN_LEFT) -> tuple[int, int, int, int]:
-        """
-        Logs text with the specified alignment.
-
-        Args:
-            text (str): The text to 'draw'.
-            prev_coords (tuple[int, int, int, int]): The previous coordinates.
-            alignment (str): Alignment of the text (left, center, right).
-
-        Returns:
-            tuple[int, int, int, int]: Simulated new coordinates after "drawing" the text.
-        """
         line = ""
         if alignment == RENDER_ALIGN_LEFT:
             line = text.ljust(self.line_width)
@@ -46,56 +31,25 @@ class ConsoleRenderer(AbstractRenderer):
         return (0, y2, len(text), y2 + 1)
 
     def draw_new_section(self, prev_coords: tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int, int, int]:
-        """
-        Logs a new section delimiter.
-
-        Args:
-            prev_coords (tuple[int, int, int, int]): Previous coordinates.
-
-        Returns:
-            tuple[int, int, int, int]: Updated coordinates to simulate section spacing.
-        """
         self.logger.info(self.section_delimiter)
         _, _, _, y2 = prev_coords
         return (0, y2, self.line_width, y2 + 1)
 
     def draw_new_subsection(self, prev_coords: tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int, int, int]:
-        """
-        Logs a new subsection delimiter.
-
-        Args:
-            prev_coords (tuple[int, int, int, int]): Previous coordinates.
-
-        Returns:
-            tuple[int, int, int, int]: Updated coordinates to simulate subsection spacing.
-        """
         self.logger.info(self.subsection_delimiter)
         _, _, _, y2 = prev_coords
         return (0, y2, self.line_width, y2 + 1)
 
     def draw_area(self, x: int, y: int, width: int, height: int, color=None):
-        """
-        Logs a rectangle or an area being drawn.
-
-        Args:
-            x (int): The x-coordinate of the top-left corner.
-            y (int): The y-coordinate of the top-left corner.
-            width (int): The width of the rectangle.
-            height (int): The height of the rectangle.
-            color (optional): The color of the rectangle.
-        """
         self.logger.info(f"Drawing area at ({x}, {y}) with width={width}, height={height}, color={color}")
 
     def refresh(self) -> None:
-        """
-        Logs a refresh operation.
-        """
         self.logger.info("Refreshing the rendered content")
 
+    def hard_refresh(self) -> None:
+        self.logger.info("Hard refreshing the rendered content")
+
     def draw_loading(self):
-        """
-        Logs a loading message.
-        """
         self.logger.info("Loading...")
         time.sleep(5)
 

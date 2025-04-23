@@ -26,7 +26,7 @@ def cleanup_epaper():
     epd2in7_V2.epdconfig.module_exit(cleanup=True)
 
 class EPaperRenderer(AbstractRenderer):
-    DEFAULT_INIT_INTERVAL = 60*60*2 # every 2 hours
+    DEFAULT_INIT_INTERVAL = 60*60 # every 1 hours
 
     def __init__(self, init_interval=DEFAULT_INIT_INTERVAL):
         self.epd = epd2in7_V2.EPD()
@@ -35,12 +35,13 @@ class EPaperRenderer(AbstractRenderer):
         self.draw = ImageDraw.Draw(self.Himage)
         self.controller = ePaper()
         self.init_interval = init_interval
-        self._init()
+        self.hard_refresh()
 
         self.init_thread = threading.Thread(target=self._run_periodic_init_task, daemon=True)
         self.init_thread.start()
 
-    def _init(self):
+    def hard_refresh(self):
+        logging.info("Hard refreshing the rendered content")
         self.epd.init()
         self.epd.Clear()
         self.epd.display_Base_color(COLOR_WHITE)
@@ -49,7 +50,7 @@ class EPaperRenderer(AbstractRenderer):
     def _run_periodic_init_task(self):
         while self.init_interval > 0:
             time.sleep(self.init_interval)
-            self._init()
+            self.hard_refresh()
 
     def draw_text(self, text: str, prev_coords: tuple[int, int, int, int] = NULL_COORDS,
                   alignment: str = RENDER_ALIGN_LEFT) -> tuple[int, int, int, int]:

@@ -111,9 +111,14 @@ class ServerStatus:
         renderer = self.renderer_manager.get_renderer()
         command_uuid = self.remote_connection_manager.attach_command(RPI_STATS_PYTHON_COMMAND)
         self.remote_connection_manager.execute_on_all_async(command_uuid)
+        current_drawing_page = renderer.get_controller().get_current_page()
 
         while self.is_running:
             try:
+                if current_drawing_page != renderer.get_controller().get_current_page():
+                    current_drawing_page = renderer.get_controller().get_current_page()
+                    renderer.hard_refresh()
+
                 logging.debug("Updating display...")
                 renderer.refresh()
                 self.remote_connection_manager.update_hostnames(self.docker.extract_node_hostnames())
@@ -125,17 +130,17 @@ class ServerStatus:
                     coords = renderer.draw_text(self.rpi.render_cluster_hat_status())
                     coords = renderer.draw_new_section(coords)
                     if not self.rpi.is_cluster_hat_on():
-                        coords = self.draw_rpi_stats(renderer, coords)
+                        self.draw_rpi_stats(renderer, coords)
                     else:
-                        if renderer.get_controller().get_current_page() == 1:
+                        if current_drawing_page == 1:
                             coords = self.draw_docker_stats_pag_1(renderer, command_uuid, coords)
                             renderer.draw_new_section(coords)
-                        elif renderer.get_controller().get_current_page() == 2:
+                        elif current_drawing_page == 2:
                             self.draw_docker_stats_pag_2(renderer, coords)
-                        elif renderer.get_controller().get_current_page() == 3:
+                        elif current_drawing_page == 3:
                             coords = self.draw_docker_stats_pag_3(renderer, coords)
                             renderer.draw_new_section(coords)
-                        elif renderer.get_controller().get_current_page() == 4:
+                        elif current_drawing_page == 4:
                             coords = self.draw_docker_stats_pag_4(renderer, coords)
                             renderer.draw_new_section(coords)
 
