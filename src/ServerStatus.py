@@ -115,15 +115,15 @@ class ServerStatus:
 
         while self.is_running:
             try:
+                logging.debug("Updating display...")
                 if current_drawing_page != renderer.get_controller().get_current_page():
                     current_drawing_page = renderer.get_controller().get_current_page()
                     renderer.hard_refresh()
-
-                logging.debug("Updating display...")
+                    continue
                 renderer.refresh()
                 self.remote_connection_manager.update_hostnames(self.docker.extract_node_hostnames())
                 if self._is_busy():
-                    logging.debug("Docker or remote connection busy. Waiting for completion...")
+                    logging.info("Docker or remote connection busy. Waiting for completion...")
                     renderer.draw_loading()
                 else:
                     renderer.draw_text(self.rpi.get_current_time() + renderer.draw_pagination(), NULL_COORDS, RENDER_ALIGN_RIGHT)
@@ -133,16 +133,13 @@ class ServerStatus:
                         self.draw_rpi_stats(renderer, coords)
                     else:
                         if current_drawing_page == 1:
-                            coords = self.draw_docker_stats_pag_1(renderer, command_uuid, coords)
-                            renderer.draw_new_section(coords)
+                            self.draw_docker_stats_pag_1(renderer, command_uuid, coords)
                         elif current_drawing_page == 2:
                             self.draw_docker_stats_pag_2(renderer, coords)
                         elif current_drawing_page == 3:
-                            coords = self.draw_docker_stats_pag_3(renderer, coords)
-                            renderer.draw_new_section(coords)
+                            self.draw_docker_stats_pag_3(renderer, coords)
                         elif current_drawing_page == 4:
-                            coords = self.draw_docker_stats_pag_4(renderer, coords)
-                            renderer.draw_new_section(coords)
+                            self.draw_docker_stats_pag_4(renderer, coords)
 
                 renderer.draw_apply()
                 time.sleep(DEFAULT_DISPLAY_UPDATE_INTERVAL_S)
