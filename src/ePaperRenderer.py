@@ -26,8 +26,7 @@ def cleanup_epaper():
     epd2in7_V2.epdconfig.module_exit(cleanup=True)
 
 class EPaperRenderer(AbstractRenderer):
-    DEFAULT_INIT_INTERVAL = 60*60 # every 1 hours
-
+    DEFAULT_INIT_INTERVAL = 60*30
     def __init__(self, init_interval=DEFAULT_INIT_INTERVAL):
         self.epd = epd2in7_V2.EPD()
         self.fontType = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), DEFAULT_FONT_SIZE)
@@ -100,9 +99,6 @@ class EPaperRenderer(AbstractRenderer):
         logging.info("EpaperRenderer closed")
 
     def draw_area(self, x: int, y: int, width: int, height: int, color=None):
-        """
-        Draw a filled rectangle on the e-paper display.
-        """
         self.draw.rectangle((x, y, x + width, y + height), fill=color or 0)
         print(f"EpaperRenderer: Area drawn at ({x}, {y}, {width}, {height})")  # Optional debug logging
 
@@ -142,7 +138,7 @@ class EPaperRenderer(AbstractRenderer):
             if text_width > self.epd.height - 2 * DEFAULT_SECTION_X_PADDING:
                 coords = self.draw_text(current_line.rstrip(", "), coords)
                 x1, y1, x2, y2 = coords
-                coords = (x1, y1, x2, y2 + DEFAULT_FONT_SIZE)
+                coords = (0, y1, 0, y2)
                 current_line = f"{string}, "
             else:
                 current_line = tentative_line

@@ -4,6 +4,7 @@ import sys
 import os
 import time
 import logging
+import signal
 
 picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources')
 libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
@@ -29,6 +30,9 @@ class ServerStatus:
         self.docker = DockerStats()
         self.renderer_manager = RendererManager(console_args.renderer == ARG_RENDERER_TYPE_CONSOLE)
         self.remote_connection_manager = RemoteConnectionManager([])
+        signal.signal(signal.SIGTERM, self._handle_signal)
+        signal.signal(signal.SIGINT, self._handle_signal)
+        signal.signal(signal.SIGKILL, self._handle_signal)
 
     def draw_rpi_stats(self, renderer: AbstractRenderer, prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
         if self.rpi is None:
@@ -147,6 +151,7 @@ class ServerStatus:
             except KeyboardInterrupt:
                 logging.info("Interrupted by user. Exiting...")
                 self.__close__()
+            
             except Exception as e:
                 logging.error(f"Error updating display: {e}")
                 self.__close__()
@@ -160,3 +165,7 @@ class ServerStatus:
             self.docker.__close__()
             self.remote_connection_manager.__close__()
         logging.info("Server Status shutting down")
+
+    def _handle_signal(self, signum, frame):
+        logging.info(f"Received signal {signum}. Initiating shutdown...")
+        self.__close__()

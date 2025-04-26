@@ -21,6 +21,10 @@ class DockerServiceDetail:
     replicas: int
 
     @property
+    def name_short(self) -> str:
+        return self.name.split('_')[-1] if '_' in self.name else self.name
+
+    @property
     def image_short(self) -> str:
         return self.image.split('@')[0] if '@' in self.image else self.image
 
@@ -44,7 +48,7 @@ class DockerServiceDetail:
     
     def to_dict(self) -> dict:
         return {
-            'name': self.name,
+            'name': self.name_short,
             'id': self.id,
             'created': self.created_short,
             'updated': self.updated,
@@ -98,7 +102,7 @@ class DockerStats:
         service_names = []
         for service in self.extract_service_details():
             ports = [f"{port['published']}" for port in service.ports]
-            service_names.append(f"{service.name}:{ports}")
+            service_names.append(f"{service.name_short}:{ports}")
 
         return service_names
 
