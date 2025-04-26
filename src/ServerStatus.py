@@ -32,7 +32,6 @@ class ServerStatus:
         self.remote_connection_manager = RemoteConnectionManager([])
         signal.signal(signal.SIGTERM, self._handle_signal)
         signal.signal(signal.SIGINT, self._handle_signal)
-        signal.signal(signal.SIGKILL, self._handle_signal)
 
     def draw_rpi_stats(self, renderer: AbstractRenderer, prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
         if self.rpi is None:
@@ -147,11 +146,6 @@ class ServerStatus:
 
                 renderer.draw_apply()
                 time.sleep(DEFAULT_DISPLAY_UPDATE_INTERVAL_S)
-
-            except KeyboardInterrupt:
-                logging.info("Interrupted by user. Exiting...")
-                self.__close__()
-            
             except Exception as e:
                 logging.error(f"Error updating display: {e}")
                 self.__close__()

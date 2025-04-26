@@ -9,7 +9,6 @@ from ePaperRenderer import cleanup_epaper
 
 
 def setup_logging():
-    logger = logging.getLogger()
     file_handler = TimedRotatingFileHandler(
         '/var/log/server_status.log',
         when='midnight',
