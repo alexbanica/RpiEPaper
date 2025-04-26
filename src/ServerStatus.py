@@ -60,7 +60,7 @@ class ServerStatus:
 
         coords = renderer.draw_new_subsection(coords)
         coords = renderer.draw_text(f"Services: #{self.docker.count_all_services()}", coords)
-        service_list = self.docker.extract_service_names_with_ports()
+        service_list = self.docker.extract_service_previews()
         coords = renderer.draw_paragraph(service_list, coords)
 
         return coords
@@ -75,7 +75,7 @@ class ServerStatus:
         services = self.docker.extract_service_details()
 
         coords = renderer.draw_table(
-            {'name': 'Name','image': 'Img','ports': 'Ports', 'replicas': 'R', 'created': 'Created'},
+            {'name': 'Name','image': 'Img','ports': 'Ports', 'replicas': 'R'},
             [serviceStats.to_dict() for serviceStats in services],
             coords
         )

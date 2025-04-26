@@ -33,8 +33,13 @@ class DockerServiceDetail:
         return self.image_short.split(':')[1] if ':' in self.image_short else '-'
 
     @property
+    def image_tag_short(self) -> str:
+        tag = self.image_short.split(':')[1] if ':' in self.image_short else '-'
+        return tag[:10] if len(tag) > 10 else tag
+
+    @property
     def ports_short(self) -> list[str]:
-        return [f"{port['published']}:{port['target']}" for port in self.ports]
+        return [f"{port['published']}" for port in self.ports]
     
     @property
     def created_short(self):
@@ -53,7 +58,7 @@ class DockerServiceDetail:
             'created': self.created_short,
             'updated': self.updated,
             'mode': self.mode,
-            'image': self.image_tag,
+            'image': self.image_tag_short,
             'ports': self.ports_short,
             'replicas': self.replicas
         }
@@ -98,11 +103,10 @@ class DockerStats:
         return natsorted([node.attrs.get('Description', {}).get('Hostname') for node in self._get_nodes_by_state(node_state)])
 
 
-    def extract_service_names_with_ports(self) -> list[str]:
+    def extract_service_previews(self) -> list[str]:
         service_names = []
         for service in self.extract_service_details():
-            ports = [f"{port['published']}" for port in service.ports]
-            service_names.append(f"{service.name_short}:{ports}")
+            service_names.append(f"{service.name_short[:3]}")
 
         return service_names
 
