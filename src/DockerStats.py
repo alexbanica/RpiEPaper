@@ -103,12 +103,17 @@ class DockerStats:
         return natsorted([node.attrs.get('Description', {}).get('Hostname') for node in self._get_nodes_by_state(node_state)])
 
 
-    def extract_service_previews(self) -> list[str]:
+    def extract_service_names(self) -> list[str]:
         service_names = []
         for service in self.extract_service_details():
             service_names.append(f"{service.name_short[:3]}")
 
         return service_names
+    def extract_open_host_ports(self) -> list[int]:
+        ports = []
+        for service in self.extract_service_details():
+            ports.extend(service.ports_short)
+        return ports
 
     def extract_service_details(self) -> list[DockerServiceDetail]:
         service_details = []

@@ -39,6 +39,8 @@ class ServerStatus:
         coords = renderer.draw_text("RaspberryPI Stats", prev_coords, RENDER_ALIGN_CENTER)
         coords = renderer.draw_new_subsection(coords)
         coords = renderer.draw_text(str(self.rpi), coords)
+        coords = renderer.draw_new_subsection(coords)
+        coords = renderer.draw_text(f"IP: {self.rpi.get_ip_address()}", coords)
 
         return coords
 
@@ -47,10 +49,9 @@ class ServerStatus:
             return prev_coords
 
         # Draw Docker Title
-        stats_coords = renderer.draw_text("Docker Swarm Stats", prev_coords, RENDER_ALIGN_CENTER)
-        renderer.draw_text(f"Nodes: {','.join(self.docker.extract_node_hostnames())}", stats_coords, RENDER_ALIGN_LEFT)
-        coords = renderer.draw_text(f"{self.docker.count_nodes_by_state()}/{self.docker.count_all_nodes()}", stats_coords, RENDER_ALIGN_RIGHT)
-
+        stats_coords = renderer.draw_text("Docker Swarm Resources Stats", prev_coords, RENDER_ALIGN_CENTER)
+        coords = renderer.draw_text(f"Nodes: {self.docker.count_nodes_by_state()}/{self.docker.count_all_nodes()} - Services: #{self.docker.count_all_services()}", stats_coords)
+        coords = renderer.draw_new_subsection(coords)
         results = self.remote_connection_manager.get_async_results(command_uuid)
         for hostname, stats in results.items():
             if hostname != self.rpi.get_hostname():
@@ -58,10 +59,9 @@ class ServerStatus:
             else:
                 coords = renderer.draw_text(f"{stats}", coords, RENDER_ALIGN_LEFT)
 
-        coords = renderer.draw_new_subsection(coords)
-        coords = renderer.draw_text(f"Services: #{self.docker.count_all_services()}", coords)
-        service_list = self.docker.extract_service_previews()
-        coords = renderer.draw_paragraph(service_list, coords)
+        subsection_coords = renderer.draw_new_subsection(coords)
+        host_ports = self.docker.extract_open_host_ports()
+        coords = renderer.draw_paragraph(["Ports:"] + host_ports, subsection_coords)
 
         return coords
 

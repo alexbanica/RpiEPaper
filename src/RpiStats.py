@@ -38,6 +38,20 @@ class RpiStats:
             logging.error(f"Error retrieving hostname: {e}")
             return "Unknown"
 
+
+    def get_ip_address(self) -> str:
+        try:
+            output = subprocess.check_output(['ifconfig'], text=True)
+            # Look for eth0 or wlan0 interface
+            for interface in ['eth0', 'wlan0']:
+                match = re.search(f'{interface}.*?inet\s+(\d+\.\d+\.\d+\.\d+)', output, re.DOTALL)
+                if match:
+                    return match.group(1)
+            return "N/A"
+        except Exception as e:
+            logging.debug(f"Error retrieving IP address: {e}")
+            return "N/A"
+
     def is_fan_on(self) -> bool:
         """
         Checks if the Raspberry Pi fan is currently on or off.
@@ -197,7 +211,7 @@ class RpiStats:
     def render_cluster_hat_status(self) -> str:
         status = self._get_clusterhat_status()
 
-        return f"Cluster: {'ON' if status.is_on else 'OFF'} - Alert: {'Y' if status.has_alert else 'N'} - Nodes: {status.active_node_count}/5"
+        return f"Cluster: {'ON' if status.is_on else 'OFF'} - IP: {self.get_ip_address()}"
 
     def __str__(self) -> str:
         cpu_usage = self.get_cpu_usage_percentage()
