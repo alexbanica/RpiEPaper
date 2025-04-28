@@ -7,7 +7,7 @@ NULL_COORDS = (0, 0, 0, 0)
 
 class AbstractRenderer(ABC):
     @abstractmethod
-    def draw_text(self, text:str, prev_coords:tuple[int,int, int, int] = NULL_COORDS, alignment:str=RENDER_ALIGN_LEFT) -> tuple[int, int, int, int]:
+    def draw_text(self, text:str, prev_coords:tuple[int,int, int, int] = NULL_COORDS, alignment:str = RENDER_ALIGN_LEFT, new_line:bool = True) -> tuple[int, int, int, int]:
         pass
 
     @abstractmethod
@@ -39,7 +39,7 @@ class AbstractRenderer(ABC):
         pass
 
     @abstractmethod
-    def draw_paragraph(self, strings: list[str], prev_coords: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+    def draw_paragraph(self, strings: list[str], prev_coords: tuple[int, int, int, int], current_line: str = "") -> tuple[int, int, int, int]:
         pass
 
     @abstractmethod

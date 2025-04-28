@@ -52,12 +52,14 @@ class EPaperRenderer(AbstractRenderer):
             self.hard_refresh()
 
     def draw_text(self, text: str, prev_coords: tuple[int, int, int, int] = NULL_COORDS,
-                  alignment: str = RENDER_ALIGN_LEFT) -> tuple[int, int, int, int]:
+                  alignment: str = RENDER_ALIGN_LEFT, new_line: bool = True) -> tuple[int, int, int, int]:
         _, _, x2, y2 = prev_coords
 
         # Calculate text dimensions
         text_width = self.draw.textlength(text, font=self.fontType)
-        text_x = DEFAULT_SECTION_X_PADDING  # Default for ALIGN_LEFT
+        text_x = DEFAULT_SECTION_X_PADDING
+        if not new_line:
+            text_x += x2
 
         if alignment == RENDER_ALIGN_CENTER:
             text_x = (self.epd.height - text_width) // 2
@@ -126,8 +128,7 @@ class EPaperRenderer(AbstractRenderer):
     def draw_apply(self):
         self._draw_apply((0, 0, self.epd.width, self.epd.height))
 
-    def draw_paragraph(self, strings: list[str], prev_coords: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
-        current_line = ""
+    def draw_paragraph(self, strings: list[str], prev_coords: tuple[int, int, int, int],  current_line: str = "") -> tuple[int, int, int, int]:
         coords = prev_coords
 
         for string in strings:
@@ -136,7 +137,7 @@ class EPaperRenderer(AbstractRenderer):
 
             # Check if the line fits the e-paper width
             if text_width > self.epd.height - 2 * DEFAULT_SECTION_X_PADDING:
-                coords = self.draw_text(current_line.rstrip(", "), coords)
+                coords = self.draw_text(current_line.rstrip(", "), coords, RENDER_ALIGN_LEFT, False)
                 x1, y1, x2, y2 = coords
                 coords = (0, y1, 0, y2)
                 current_line = f"{string}, "

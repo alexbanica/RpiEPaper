@@ -39,8 +39,6 @@ class ServerStatus:
         coords = renderer.draw_text("RaspberryPI Stats", prev_coords, RENDER_ALIGN_CENTER)
         coords = renderer.draw_new_subsection(coords)
         coords = renderer.draw_text(str(self.rpi), coords)
-        coords = renderer.draw_new_subsection(coords)
-        coords = renderer.draw_text(f"IP: {self.rpi.get_ip_address()}", coords)
 
         return coords
 
@@ -50,7 +48,7 @@ class ServerStatus:
 
         # Draw Docker Title
         stats_coords = renderer.draw_text("Docker Swarm Resources Stats", prev_coords, RENDER_ALIGN_CENTER)
-        coords = renderer.draw_text(f"Nodes: {self.docker.count_nodes_by_state()}/{self.docker.count_all_nodes()} - Services: #{self.docker.count_all_services()}", stats_coords)
+        coords = renderer.draw_text(f"N: {self.docker.count_nodes_by_state()}/{self.docker.count_all_nodes()} - S: #{self.docker.count_all_services()} - P: #{len(self.docker.get_open_ports())}", stats_coords)
         coords = renderer.draw_new_subsection(coords)
         results = self.remote_connection_manager.get_async_results(command_uuid)
         for hostname, stats in results.items():
@@ -61,7 +59,8 @@ class ServerStatus:
 
         subsection_coords = renderer.draw_new_subsection(coords)
         host_ports = self.docker.extract_open_host_ports()
-        coords = renderer.draw_paragraph(["Ports:"] + host_ports, subsection_coords)
+        coords = renderer.draw_text("P: ", subsection_coords)
+        coords = renderer.draw_paragraph([f":{port}" for port in host_ports], (coords[0], coords[1], coords[2], subsection_coords[3]), "P: ")
 
         return coords
 

@@ -26,20 +26,21 @@ class RpiStats:
             return "N/A"
 
     def get_hostname(self) -> str:
-        """
-        Returns the hostname of the device.
-    
-        Returns:
-            str: The hostname of the device.
-        """
         try:
             return os.uname().nodename
         except Exception as e:
             logging.error(f"Error retrieving hostname: {e}")
             return "Unknown"
 
+    def is_wifi_enabled(self) -> bool:
+        try:
+            output = subprocess.check_output(['sudo', 'nmcli', 'radio', 'wifi'], text=True).strip()
+            return output.lower() == 'enabled'
+        except Exception as e:
+            logging.debug(f"Error checking WiFi status: {e}")
+            return False
 
-    def get_ip_address(self) -> str:
+    def get_my_ip_address(self) -> str:
         try:
             output = subprocess.check_output(['ifconfig'], text=True)
             # Look for eth0 or wlan0 interface
@@ -53,12 +54,6 @@ class RpiStats:
             return "N/A"
 
     def is_fan_on(self) -> bool:
-        """
-        Checks if the Raspberry Pi fan is currently on or off.
-    
-        Returns:
-            bool: True if the fan is on, False otherwise.
-        """
         try:
             with open('/sys/devices/virtual/thermal/cooling_device0/cur_state', 'r') as fan_file:
                 status = fan_file.read().strip()
@@ -84,12 +79,6 @@ class RpiStats:
             return "T:N/A"
 
     def get_ram_usage(self) -> tuple:
-        """
-        Reads the Raspberry Pi's RAM usage.
-    
-        Returns:
-            tuple: (used_ram_MB, total_ram_MB), both in megabytes (MB).
-        """
         try:
             with open('/proc/meminfo', 'r') as mem_file:
                 meminfo = mem_file.readlines()
@@ -110,12 +99,6 @@ class RpiStats:
             return (0, 0)  # Default to 0 if there’s an error
 
     def get_ram_usage_percentage(self) -> float:
-        """
-        Calculates the Raspberry Pi's memory usage percentage.
-    
-        Returns:
-            float: Memory usage as a percentage of total RAM.
-        """
         try:
             used_ram, total_ram = self.get_ram_usage()
             if total_ram > 0:
@@ -126,12 +109,6 @@ class RpiStats:
             return 0.0
 
     def get_cpu_usage_percentage(self) -> float:
-        """
-        Calculates the current CPU usage percentage.
-    
-        Returns:
-            float: CPU usage in percentage.
-        """
         try:
             # Read initial CPU stats
             with open('/proc/stat', 'r') as stat_file:
@@ -211,7 +188,7 @@ class RpiStats:
     def render_cluster_hat_status(self) -> str:
         status = self._get_clusterhat_status()
 
-        return f"Cluster: {'ON' if status.is_on else 'OFF'} - IP: {self.get_ip_address()}"
+        return f"C: {'Y' if status.is_on else 'N'} - N:{status.active_node_count}/5 - F: {'Y' if self.is_fan_on() else 'N'} - {self.get_my_ip_address()}"
 
     def __str__(self) -> str:
         cpu_usage = self.get_cpu_usage_percentage()

@@ -113,7 +113,7 @@ class DockerStats:
         ports = []
         for service in self.extract_service_details():
             ports.extend(service.ports_short)
-        return ports
+        return natsorted(ports)
 
     def extract_service_details(self) -> list[DockerServiceDetail]:
         service_details = []

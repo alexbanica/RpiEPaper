@@ -15,7 +15,7 @@ class ConsoleRenderer(AbstractRenderer):
         self.line_width = 50  # Assumed line width for alignment purposes
 
     def draw_text(self, text: str, prev_coords: tuple[int, int, int, int] = NULL_COORDS,
-                  alignment: str = RENDER_ALIGN_LEFT) -> tuple[int, int, int, int]:
+                  alignment: str = RENDER_ALIGN_LEFT, new_line: bool = True) -> tuple[int, int, int, int]:
         line = ""
         if alignment == RENDER_ALIGN_LEFT:
             line = text.ljust(self.line_width)
@@ -59,8 +59,8 @@ class ConsoleRenderer(AbstractRenderer):
     def __close__(self):
         self.logger.info("Closing ConsoleRenderer")
 
-    def draw_paragraph(self, strings: list[str], prev_coords: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
-        paragraph = ", ".join(strings)
+    def draw_paragraph(self, strings: list[str], prev_coords: tuple[int, int, int, int], current_line: str = "") -> tuple[int, int, int, int]:
+        paragraph = current_line + ", ".join(strings)
         start_index = 0
         _, _, _, y2 = prev_coords
 
