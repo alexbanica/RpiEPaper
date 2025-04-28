@@ -188,7 +188,7 @@ class RpiStats:
     def render_cluster_hat_status(self) -> str:
         status = self._get_clusterhat_status()
 
-        return f"C: {'Y' if status.is_on else 'N'} - N:{status.active_node_count}/5 - F: {'Y' if self.is_fan_on() else 'N'} - {self.get_my_ip_address()}"
+        return f"C: {'Y' if status.is_on else 'N'} - N: {status.active_node_count}/5 - F: {'Y' if self.is_fan_on() else 'N'} - {self.get_my_ip_address()}"
 
     def __str__(self) -> str:
         cpu_usage = self.get_cpu_usage_percentage()
