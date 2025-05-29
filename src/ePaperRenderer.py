@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
 import sys
 import os
 import threading
@@ -7,8 +10,7 @@ import logging
 from AbstractRenderer import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
 from waveshare_epd import epd2in7_V2
 from PIL import Image, ImageDraw, ImageFont
-
-from ePaper import ePaper
+from ePaper import EPaper
 
 picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources')
 libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
@@ -32,7 +34,7 @@ class EPaperRenderer(AbstractRenderer):
         self.fontType = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), DEFAULT_FONT_SIZE)
         self.Himage = Image.new('1', (self.epd.height, self.epd.width), COLOR_WHITE)
         self.draw = ImageDraw.Draw(self.Himage)
-        self.controller = ePaper()
+        self.controller = EPaper()
         self.init_interval = init_interval
         self.hard_refresh()
 
@@ -159,6 +161,12 @@ class EPaperRenderer(AbstractRenderer):
 
     def get_current_page(self) -> int:
         return self.get_controller().get_current_page()
+
+    def get_current_scroll_offset(self) -> int:
+        return self.get_controller().get_current_scroll_offset()
+
+    def get_current_scroll_step(self) -> int:
+        return self.get_controller().get_current_scroll_step()
 
     def get_total_pages(self) -> int:
         return self.get_controller().get_total_pages()

@@ -1,8 +1,10 @@
-from AbstractRenderer import AbstractRenderer
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
 
 import logging
 import time
-from AbstractRenderer import NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
+from AbstractRenderer import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
+from ServerStatusContext import ServerStatusContext
 
 
 class ConsoleRenderer(AbstractRenderer):
@@ -59,7 +61,8 @@ class ConsoleRenderer(AbstractRenderer):
     def __close__(self):
         self.logger.info("Closing ConsoleRenderer")
 
-    def draw_paragraph(self, strings: list[str], prev_coords: tuple[int, int, int, int], current_line: str = "") -> tuple[int, int, int, int]:
+    def draw_paragraph(self, strings: list[str], prev_coords: tuple[int, int, int, int], current_line: str = "") -> \
+    tuple[int, int, int, int]:
         paragraph = current_line + ", ".join(strings)
         start_index = 0
         _, _, _, y2 = prev_coords
@@ -81,12 +84,19 @@ class ConsoleRenderer(AbstractRenderer):
         return self
 
     def get_current_page(self) -> int:
-        return 1
+        return ServerStatusContext.context.default_page
 
     def get_total_pages(self) -> int:
-        return 1
-    
-    def draw_table(self, headers:dict[str, str], data:list[dict], prev_coords: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+        return 2
+
+    def get_current_scroll_step(self):
+        return 100
+
+    def get_current_scroll_offset(self):
+        return 0
+
+    def draw_table(self, headers: dict[str, str], data: list[dict], prev_coords: tuple[int, int, int, int]) -> tuple[
+        int, int, int, int]:
         # Calculate column widths based on content
         header_keys = list(headers.keys())
         col_widths = [len(headers[key]) for key in header_keys]

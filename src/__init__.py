@@ -3,7 +3,7 @@
 
 import logging
 from logging.handlers import TimedRotatingFileHandler
-from ServerStatusArgumentParser import ServerStatusArgumentParser
+from ServerStatusContext import ServerStatusContext
 from ServerStatus import ServerStatus
 from ePaperRenderer import cleanup_epaper
 
@@ -24,9 +24,9 @@ def setup_logging():
 
 if __name__ == "__main__":
     setup_logging()
-    args = ServerStatusArgumentParser.parse()
+    ServerStatusContext.parse_arguments()
     try:
-        ServerStatus(args).start()
+        ServerStatus().start()
     except Exception as e:
         logging.error(f"Error starting server status: {e}")
         cleanup_epaper()

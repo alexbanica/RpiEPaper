@@ -1,14 +1,17 @@
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
 import logging
 import uuid
-from dataclasses import dataclass
-from typing import Optional
-
 import paramiko
 import time
 import threading
 from natsort import natsorted
+from dataclasses import dataclass
+from typing import Optional
 
 EXTERNAL_UPDATE_INTERVAL_S = 2
+
 
 @dataclass
 class AsyncCommandCacheDto:

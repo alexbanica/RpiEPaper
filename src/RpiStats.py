@@ -1,3 +1,6 @@
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
 import logging
 import time
 import os
@@ -7,6 +10,7 @@ from dataclasses import dataclass
 
 RPI_TIME_FORMAT = "%H:%M"
 RPI_STATS_PYTHON_COMMAND = "PYTHONPATH=/mnt/data/ePaperHat/src python3 -c 'from RpiStats import RpiStats; print(RpiStats())'"
+
 
 @dataclass
 class ClusterHatStatus:

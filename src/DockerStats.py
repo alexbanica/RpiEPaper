@@ -1,17 +1,21 @@
-from typing import Any
-from datetime import datetime
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
 import docker
 import logging
 import threading
 import time
 from natsort import natsorted
 from dataclasses import dataclass
+from typing import Any
+from datetime import datetime
 
 DOCKER_UPDATE_INTERVAL_S = 2
 
 @dataclass
 class DockerServiceDetail:
     name: str
+    namespace: str
     id: str
     created: str
     updated: str
@@ -19,10 +23,11 @@ class DockerServiceDetail:
     image: str
     ports: list
     replicas: int
+    running_replicas: int
 
     @property
     def name_short(self) -> str:
-        return self.name.split('_')[-1] if '_' in self.name else self.name
+        return self.name.replace(f"{self.namespace}_", "") if self.namespace else self.name
 
     @property
     def image_short(self) -> str:
@@ -60,12 +65,13 @@ class DockerServiceDetail:
             'mode': self.mode,
             'image': self.image_tag_short,
             'ports': self.ports_short,
-            'replicas': self.replicas
+            'replicas': f"{self.running_replicas}/{self.replicas}"
         }
 
 class DockerStats:
     def __init__(self):
         self.client = docker.from_env()
+        self.low_level_client = docker.APIClient()
         self.services = []
         self.nodes = []
         logging.debug("Connecting to Docker daemon and performing initial update. This may take a while, please wait...")
@@ -126,16 +132,21 @@ class DockerStats:
                         'target': port.get('TargetPort'),
                         'protocol': port.get('Protocol')
                     })
+            # Fetch the tasks of the service
+            tasks = self.get_tasks_for_service(service.id)
+
 
             service_detail = DockerServiceDetail(
                 name=service.name,
+                namespace= service.attrs.get('Spec', {}).get('Labels', {}).get('com.docker.stack.namespace', ''),
                 id=service.id,
                 created=service.attrs.get('CreatedAt', ''),
                 updated=service.attrs.get('UpdatedAt', ''),
                 mode=service.attrs.get('Spec', {}).get('Mode', {}),
                 image=service.attrs.get('Spec', {}).get('TaskTemplate', {}).get('ContainerSpec', {}).get('Image', ''),
                 ports=ports,
-                replicas=service.attrs.get('Spec', {}).get('Mode', {}).get('Replicated', {}).get('Replicas', 0)
+                replicas=service.attrs.get('Spec', {}).get('Mode', {}).get('Replicated', {}).get('Replicas', 0),
+                running_replicas=sum(1 for task in tasks if task['Status']['State'] == 'running')
             )
             service_details.append(service_detail)
 
@@ -177,3 +188,6 @@ class DockerStats:
         self.running = False
         self.thread.join()
         logging.info("Thread %s: finishing", self.thread.name)
+
+    def get_tasks_for_service(self, service_id: str) -> list:
+        return self.low_level_client.tasks(filters={"service": service_id})

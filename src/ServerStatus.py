@@ -1,10 +1,13 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+
 import sys
 import os
 import time
 import logging
 import signal
+
+from ServerStatusContext import ServerStatusContext;
 
 picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources')
 libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
@@ -17,18 +20,17 @@ from RemoteConnectionManager import RemoteConnectionManager
 from RendererManager import RendererManager
 from AbstractRenderer import AbstractRenderer, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER, NULL_COORDS, RENDER_ALIGN_LEFT
 from typing import Optional
-from ServerStatusArgumentParser import ServerStatusArgumentParser, ARG_RENDERER_TYPE_CONSOLE, ARG_RENDERER_TYPE_EPAPER
 
-DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 5
+DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 2
 
 
 class ServerStatus:
-    def __init__(self, console_args):
+    def __init__(self):
+        logging.info(f"Initializing Server Status with context info: {ServerStatusContext.context}")
         self.is_running = True
-        self.console_args = console_args
         self.rpi = RpiStats()
         self.docker = DockerStats()
-        self.renderer_manager = RendererManager(console_args.renderer == ARG_RENDERER_TYPE_CONSOLE)
+        self.renderer_manager = RendererManager(ServerStatusContext.context.render_type)
         self.remote_connection_manager = RemoteConnectionManager([])
         signal.signal(signal.SIGTERM, self._handle_signal)
         signal.signal(signal.SIGINT, self._handle_signal)
@@ -73,11 +75,16 @@ class ServerStatus:
         coords = renderer.draw_text(f"#{self.docker.count_all_services()}", prev_coords, RENDER_ALIGN_RIGHT)
         services = self.docker.extract_service_details()
 
+        # Calculate visible service range
+        start_index = renderer.get_current_scroll_offset()
+        end_index = min(renderer.get_current_scroll_offset() + renderer.get_current_scroll_step(), len(services))
+        visible_services = services[start_index:end_index]
+
         coords = renderer.draw_table(
-            {'name': 'Name','image': 'Img','ports': 'Ports', 'replicas': 'R'},
-            [serviceStats.to_dict() for serviceStats in services],
-            coords
-        )
+                {'name': 'Name','image': 'Img','ports': 'Ports', 'replicas': 'R'},
+                [serviceStats.to_dict() for serviceStats in visible_services],
+                coords
+            )
 
         return coords
 
@@ -142,6 +149,8 @@ class ServerStatus:
                             self.draw_docker_stats_pag_3(renderer, coords)
                         elif current_drawing_page == 4:
                             self.draw_docker_stats_pag_4(renderer, coords)
+                        else:
+                            logging.warning(f"Invalid drawing page: {current_drawing_page}")
 
                 renderer.draw_apply()
                 time.sleep(DEFAULT_DISPLAY_UPDATE_INTERVAL_S)

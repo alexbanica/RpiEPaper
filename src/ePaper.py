@@ -1,18 +1,24 @@
-from gpiozero import Button
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
 import logging
 import threading
 import time
+from gpiozero import Button
+from ServerStatusContext import ServerStatusContext
 
-class ePaper:
+class EPaper:
     def __init__(self):
 
         self.key2 = Button(6)
         self.key3 = Button(13)
         self.key1 = Button(5)
-        # self.key4 = Button(17)
+        #self.key4 = Button(17)
 
         self.running = True
-        self.current_page = 1
+        self.current_page = ServerStatusContext.context.default_page
+        self.scroll_offset = 0
+        self.scroll_step = 5
         self.thread = threading.Thread(target=self._check_epaper_key_pressed_task, daemon=True)
         self.thread.start()
         logging.info("ePaper update thread [%s] started.", self.thread.name)
@@ -27,24 +33,48 @@ class ePaper:
         while self.running:
             def __key1_pressed():
                 logging.info("Key 1 pressed - switching to page 1")
+                setattr(self, 'scroll_offset', 0)
                 setattr(self, 'current_page', 1)
 
             def __key2_pressed():
                 logging.info("Key 2 pressed - switching to page 2")
+                setattr(self, 'scroll_offset', 0)
                 setattr(self, 'current_page', 2)
 
             def __key3_pressed():
-                logging.info("Key 3 pressed - switching to page 3")
-                setattr(self, 'current_page', 3)
+                logging.info(f"Key 3 pressed - scroll up (only on page 2)")
+                logging.info(
+                    f"Current offset: {self.scroll_offset}, step: {self.scroll_step}, max offset: {1000 - self.scroll_step}"
+                )
+                if self.current_page == 2:
+                    setattr(self, 'scroll_offset',  max(0, self.scroll_offset + self.scroll_step))
+                else:
+                    setattr(self, 'current_page', 3)
+                    setattr(self, 'scroll_offset', 0)
+
+            def __key4_pressed():
+                logging.info("Key 4 pressed - scroll down (only on page 2)")
+                if self.current_page == 2:
+                    setattr(self, 'scroll_offset', min(1000, self.scroll_offset + self.scroll_step))
+                else:
+                    setattr(self, 'current_page', 4)
+                    setattr(self, 'scroll_offset', 0)
+
 
             self.key1.when_pressed = __key1_pressed
             self.key2.when_pressed = __key2_pressed
             self.key3.when_pressed = __key3_pressed
-            # self.key4.when_pressed = lambda: setattr(self, 'current_page', 4)
-            time.sleep(0.5)
+            #self.key4.when_pressed = __key4_pressed
+            time.sleep(0.2)
 
     def get_current_page(self):
         return self.current_page
+
+    def get_current_scroll_step(self):
+        return self.scroll_step
+
+    def get_current_scroll_offset(self):
+        return self.scroll_offset
 
     def get_total_pages(self):
         return 4
