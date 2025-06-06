@@ -21,7 +21,7 @@ from RendererManager import RendererManager
 from AbstractRenderer import AbstractRenderer, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER, NULL_COORDS, RENDER_ALIGN_LEFT
 from typing import Optional
 
-DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 2
+DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 5
 
 
 class ServerStatus:
