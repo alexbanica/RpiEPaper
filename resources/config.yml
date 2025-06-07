@@ -1,0 +1,6 @@
+cluster_monitor:
+  remote_service:
+    ssh:
+      user: ''
+      key_path: ''
+      command: "PYTHONPATH=/mnt/data/ePaperHat/cluster_monitor/services python3 -c 'from RpiService import RpiService; print(RpiService().render_stats())'"

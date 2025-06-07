@@ -12,7 +12,6 @@ from typing import Optional
 
 EXTERNAL_UPDATE_INTERVAL_S = 2
 
-
 @dataclass
 class AsyncCommandCacheDto:
     uuid: str
@@ -60,8 +59,8 @@ class AsyncCommands:
         logging.debug("Closing async commands update threads, stopping...")
         self.close()
 
-class RemoteConnectionManager:
-    def __init__(self, hostnames:list[str], username: str = "alexbanica", ssh_key_path: str = "/home/alexbanica/.ssh/id_rsa"):
+class RemoteService:
+    def __init__(self, hostnames:list[str], username: str, ssh_key_path: str):
         self.username = username
         self.ssh_key_path = ssh_key_path
         self.lock = threading.Lock()
@@ -153,7 +152,7 @@ class RemoteConnectionManager:
                 logging.error(f"Error executing command on host %s: %s", hostname, e)
         return results
 
-    def execute_on_all_async(self, command_uuid: str = None) -> str:
+    def execute_on_all_async(self, command_uuid: str = None) -> None:
         self.async_commands[command_uuid].thread.start()
 
     def get_async_results(self, command_uuid: Optional[str]) -> dict[str, str]:

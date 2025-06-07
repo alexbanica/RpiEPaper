@@ -1,79 +1,70 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 
-import sys
-import os
 import time
 import logging
 import signal
 
-from ServerStatusContext import ServerStatusContext;
-
-picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources')
-libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
-if os.path.exists(libdir):
-    sys.path.append(libdir)
-
-from DockerStats import DockerStats
-from RpiStats import RpiStats, RPI_STATS_PYTHON_COMMAND
-from RemoteConnectionManager import RemoteConnectionManager
-from RendererManager import RendererManager
-from AbstractRenderer import AbstractRenderer, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER, NULL_COORDS, RENDER_ALIGN_LEFT
+from cluster_monitor.services import DockerService, RpiService, RemoteService
+from cluster_monitor.renderers import RendererManager, AbstractRenderer, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER, NULL_COORDS, RENDER_ALIGN_LEFT
+from cluster_monitor.dto import Context
 from typing import Optional
 
 DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 5
 
+class ClusterMonitor:
+    singleton = None
 
-class ServerStatus:
-    def __init__(self):
-        logging.info(f"Initializing Server Status with context info: {ServerStatusContext.context}")
+    def __init__(self, context: Context):
         self.is_running = True
-        self.rpi = RpiStats()
-        self.docker = DockerStats()
-        self.renderer_manager = RendererManager(ServerStatusContext.context.render_type)
-        self.remote_connection_manager = RemoteConnectionManager([])
-        signal.signal(signal.SIGTERM, self._handle_signal)
-        signal.signal(signal.SIGINT, self._handle_signal)
+        self.context = context
+        self.rpi_service = RpiService()
+        self.docker_service = DockerService()
+        self.renderer_manager = RendererManager(self.context)
+        self.remote_connection_service = RemoteService([], context.remote_ssh_username, context.remote_ssh_key_path)
+        ClusterMonitor.singleton = self
+        self._setup_signal_handlers()
+        logging.info("Cluster Monitor initialized with context info: %s", context)
 
     def draw_rpi_stats(self, renderer: AbstractRenderer, prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
-        if self.rpi is None:
+        if self.rpi_service is None:
             return prev_coords
         coords = renderer.draw_text("RaspberryPI Stats", prev_coords, RENDER_ALIGN_CENTER)
         coords = renderer.draw_new_subsection(coords)
-        coords = renderer.draw_text(str(self.rpi), coords)
+        coords = renderer.draw_text(str(self.rpi_service.render_stats()), coords)
 
         return coords
 
     def draw_docker_stats_pag_1(self, renderer: AbstractRenderer, command_uuid: Optional[str], prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
-        if self.docker is None:
+        if self.docker_service is None:
             return prev_coords
 
         # Draw Docker Title
         stats_coords = renderer.draw_text("Docker Swarm Resources Stats", prev_coords, RENDER_ALIGN_CENTER)
-        coords = renderer.draw_text(f"N: {self.docker.count_nodes_by_state()}/{self.docker.count_all_nodes()} - S: #{self.docker.count_all_services()} - P: #{len(self.docker.get_open_ports())}", stats_coords)
+        coords = renderer.draw_text(f"N: {self.docker_service.count_nodes_by_state()}/{self.docker_service.count_all_nodes()} - S: #{self.docker_service.count_all_services()} - P: #{len(self.docker_service.get_open_ports())}", stats_coords)
         coords = renderer.draw_new_subsection(coords)
-        results = self.remote_connection_manager.get_async_results(command_uuid)
+        results = self.remote_connection_service.get_async_results(command_uuid)
         for hostname, stats in results.items():
-            if hostname != self.rpi.get_hostname():
+            if hostname != self.rpi_service.get_hostname():
                 coords = renderer.draw_text(f"{stats} - (R)", coords, RENDER_ALIGN_LEFT)
             else:
                 coords = renderer.draw_text(f"{stats}", coords, RENDER_ALIGN_LEFT)
 
         subsection_coords = renderer.draw_new_subsection(coords)
-        host_ports = self.docker.extract_open_host_ports()
+        host_ports = self.docker_service.extract_open_host_ports()
         coords = renderer.draw_text("P: ", subsection_coords)
         coords = renderer.draw_paragraph([f":{port}" for port in host_ports], (coords[0], coords[1], coords[2], subsection_coords[3]), "P: ")
 
         return coords
 
     def draw_docker_stats_pag_2(self, renderer: AbstractRenderer, prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
-        if self.docker is None:
+        if self.docker_service is None:
             return prev_coords
 
         # Draw Docker Title
         stats_coords = renderer.draw_text("Docker Swarm Services Stats", prev_coords, RENDER_ALIGN_CENTER)
-        coords = renderer.draw_text(f"#{self.docker.count_all_services()}", prev_coords, RENDER_ALIGN_RIGHT)
-        services = self.docker.extract_service_details()
+        coords = renderer.draw_text(f"#{self.docker_service.count_all_services()}", prev_coords, RENDER_ALIGN_RIGHT)
+        services = self.docker_service.extract_service_details()
 
         # Calculate visible service range
         start_index = renderer.get_current_scroll_offset()
@@ -89,7 +80,7 @@ class ServerStatus:
         return coords
 
     def draw_docker_stats_pag_3(self, renderer: AbstractRenderer, prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
-        if self.docker is None:
+        if self.docker_service is None:
             return prev_coords
 
         # Draw Docker Title
@@ -98,7 +89,7 @@ class ServerStatus:
         return stats_coords
 
     def draw_docker_stats_pag_4(self, renderer: AbstractRenderer, prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
-        if self.docker is None:
+        if self.docker_service is None:
             return prev_coords
 
         # Draw Docker Title
@@ -107,19 +98,19 @@ class ServerStatus:
         return stats_coords
 
     def _is_busy(self) -> bool:
-        if not self.rpi.is_cluster_hat_on():
+        if not self.rpi_service.is_cluster_hat_on():
             return False
-        if self.docker.is_busy():
+        if self.docker_service.is_busy():
             return True
-        if self.remote_connection_manager.is_busy():
+        if self.remote_connection_service.is_busy():
             return True
         return False
 
-    def start(self):
-        logging.info("Server Status display. Press Ctrl+C to exit.")
+    def start(self) -> None:
+        logging.info("Cluster Monitor display. Press Ctrl+C to exit.")
         renderer = self.renderer_manager.get_renderer()
-        command_uuid = self.remote_connection_manager.attach_command(RPI_STATS_PYTHON_COMMAND)
-        self.remote_connection_manager.execute_on_all_async(command_uuid)
+        command_uuid = self.remote_connection_service.attach_command(self.context.remote_ssh_command)
+        self.remote_connection_service.execute_on_all_async(command_uuid)
         current_drawing_page = renderer.get_controller().get_current_page()
 
         while self.is_running:
@@ -130,15 +121,15 @@ class ServerStatus:
                     renderer.hard_refresh()
                     continue
                 renderer.refresh()
-                self.remote_connection_manager.update_hostnames(self.docker.extract_node_hostnames())
+                self.remote_connection_service.update_hostnames(self.docker_service.extract_node_hostnames())
                 if self._is_busy():
                     logging.info("Docker or remote connection busy. Waiting for completion...")
                     renderer.draw_loading()
                 else:
-                    renderer.draw_text(self.rpi.get_current_time() + renderer.draw_pagination(), NULL_COORDS, RENDER_ALIGN_RIGHT)
-                    coords = renderer.draw_text(self.rpi.render_cluster_hat_status())
+                    renderer.draw_text(self.rpi_service.get_current_time() + renderer.draw_pagination(), NULL_COORDS, RENDER_ALIGN_RIGHT)
+                    coords = renderer.draw_text(self.rpi_service.render_cluster_hat_status())
                     coords = renderer.draw_new_section(coords)
-                    if not self.rpi.is_cluster_hat_on():
+                    if not self.rpi_service.is_cluster_hat_on():
                         self.draw_rpi_stats(renderer, coords)
                     else:
                         if current_drawing_page == 1:
@@ -159,15 +150,24 @@ class ServerStatus:
                 self.__close__()
                 raise e
 
-    def __close__(self):
+    def __close__(self) -> None:
         logging.info("Closing Server Status")
         self.is_running = False
         self.renderer_manager.__close__()
-        if self.rpi.is_cluster_hat_on():
-            self.docker.__close__()
-            self.remote_connection_manager.__close__()
+        if self.rpi_service.is_cluster_hat_on():
+            self.docker_service.__close__()
+            self.remote_connection_service.__close__()
         logging.info("Server Status shutting down")
 
-    def _handle_signal(self, signum, frame):
+
+    def _setup_signal_handlers(self) -> None:
+        signal.signal(signal.SIGTERM, self._handle_signal)
+        signal.signal(signal.SIGINT, self._handle_signal)
+
+    def _handle_signal(self, signum, _) -> None:
         logging.info(f"Received signal {signum}. Initiating shutdown...")
         self.__close__()
+
+    @staticmethod
+    def get_context() -> Context:
+        return ClusterMonitor.singleton.context

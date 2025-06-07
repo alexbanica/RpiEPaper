@@ -47,7 +47,7 @@ class DockerServiceDetail:
         return [f"{port['published']}" for port in self.ports]
     
     @property
-    def created_short(self):
+    def created_short(self) -> str:
         if not self.created:
             return ''
         dt = datetime.fromisoformat(self.created.replace('Z', '+00:00'))
@@ -56,7 +56,7 @@ class DockerServiceDetail:
     def to_list(self) -> list:
         return [self.name, self.id, self.created, self.updated, self.mode, self.image, self.ports, self.replicas]
     
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             'name': self.name_short,
             'id': self.id,
@@ -68,7 +68,7 @@ class DockerServiceDetail:
             'replicas': f"{self.running_replicas}/{self.replicas}"
         }
 
-class DockerStats:
+class DockerService:
     def __init__(self):
         self.client = docker.from_env()
         self.low_level_client = docker.APIClient()
@@ -80,9 +80,9 @@ class DockerStats:
         self.running = True
         self.thread = threading.Thread(target=self._docker_stats_update_task, daemon=True)
         self.thread.start()
-        logging.info("DockerStats update thread [%s] started.", self.thread.name)
+        logging.info("Docker update thread [%s] started.", self.thread.name)
 
-    def _update(self):
+    def _update(self) -> None:
         try:
             self.nodes = self.client.nodes.list()
             self.services = self.client.services.list()
@@ -160,7 +160,7 @@ class DockerStats:
                     ports.append(port.get('PublishedPort'))
         return ports
 
-    def _docker_stats_update_task(self):
+    def _docker_stats_update_task(self) -> None:
         logging.debug("Docker update thread is starting up")
         while self.running:
             try:
@@ -183,7 +183,7 @@ class DockerStats:
 
         return False
 
-    def __close__(self):
+    def __close__(self) -> None:
         logging.debug("Closing DockerStats update thread")
         self.running = False
         self.thread.join()

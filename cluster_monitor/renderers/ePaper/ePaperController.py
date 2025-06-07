@@ -5,10 +5,11 @@ import logging
 import threading
 import time
 from gpiozero import Button
-from ServerStatusContext import ServerStatusContext
 
-class EPaper:
-    def __init__(self):
+from cluster_monitor.dto import Context
+
+class EPaperController:
+    def __init__(self, context: Context):
 
         self.key2 = Button(6)
         self.key3 = Button(13)
@@ -16,7 +17,7 @@ class EPaper:
         #self.key4 = Button(17)
 
         self.running = True
-        self.current_page = ServerStatusContext.context.default_page
+        self.current_page = context.default_page
         self.scroll_offset = 0
         self.scroll_step = 5
         self.thread = threading.Thread(target=self._check_epaper_key_pressed_task, daemon=True)
