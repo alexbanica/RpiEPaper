@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+
 import logging
 
 from cluster_monitor.renderers.AbstractRenderer import AbstractRenderer

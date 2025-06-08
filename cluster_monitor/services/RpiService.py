@@ -6,15 +6,10 @@ import time
 import os
 import subprocess
 import re
-from dataclasses import dataclass
+
+from cluster_monitor.dto import ClusterHatStatus
 
 RPI_TIME_FORMAT = "%H:%M"
-
-@dataclass
-class ClusterHatStatus:
-    is_on: bool
-    has_alert: bool
-    active_node_count: int
 
 class RpiService:
     def __init__(self):

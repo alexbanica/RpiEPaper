@@ -6,10 +6,8 @@ import threading
 import time
 import logging
 
+from cluster_monitor import RESOURCES_DIR
 from cluster_monitor.dto import Context
-
-picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources')
-
 from cluster_monitor.renderers import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
 from waveshare_epd import epd2in7_V2
 from PIL import Image, ImageDraw, ImageFont
@@ -29,7 +27,7 @@ class EPaperRenderer(AbstractRenderer):
     DEFAULT_INIT_INTERVAL = 60*30
     def __init__(self, context: Context, init_interval=DEFAULT_INIT_INTERVAL):
         self.epd = epd2in7_V2.EPD()
-        self.fontType = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), DEFAULT_FONT_SIZE)
+        self.fontType = ImageFont.truetype(os.path.join(RESOURCES_DIR, 'Font.ttc'), DEFAULT_FONT_SIZE)
         self.Himage = Image.new('1', (self.epd.height, self.epd.width), COLOR_WHITE)
         self.draw = ImageDraw.Draw(self.Himage)
         self.controller = EPaperController(context)

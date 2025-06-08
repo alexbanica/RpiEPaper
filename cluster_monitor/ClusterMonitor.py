@@ -5,7 +5,9 @@ import time
 import logging
 import signal
 
-from cluster_monitor.services import DockerService, RpiService, RemoteService
+from cluster_monitor.services.RpiService import RpiService
+from cluster_monitor.services.DockerService import DockerService
+from cluster_monitor.services.RemoteService import RemoteService
 from cluster_monitor.renderers import RendererManager, AbstractRenderer, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER, NULL_COORDS, RENDER_ALIGN_LEFT
 from cluster_monitor.dto import Context
 from typing import Optional

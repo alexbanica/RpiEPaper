@@ -3,4 +3,4 @@ cluster_monitor:
     ssh:
       user: ''
       key_path: ''
-      command: "PYTHONPATH=/mnt/data/ePaperHat/cluster_monitor/services python3 -c 'from RpiService import RpiService; print(RpiService().render_stats())'"
+      command: "PYTHONPATH=/mnt/data/ePaperHat python3 -m cluster_monitor -mc"
