@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 
-import datetime
+from _datetime import datetime
 from dataclasses import dataclass
 from typing import Any
 
@@ -29,11 +29,11 @@ class DockerStatus:
 
     @property
     def image_tag(self) -> str:
-        return self.image_short.split(':')[1] if ':' in self.image_short else '-'
+        return self.image_short.rsplit(':', 1)[-1] if ':' in self.image_short else '-'
 
     @property
     def image_tag_short(self) -> str:
-        tag = self.image_short.split(':')[1] if ':' in self.image_short else '-'
+        tag = self.image_tag
         return tag[:10] if len(tag) > 10 else tag
 
     @property
