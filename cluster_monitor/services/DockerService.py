@@ -5,70 +5,14 @@ import docker
 import logging
 import threading
 import time
+
 from natsort import natsorted
-from dataclasses import dataclass
 from typing import Any
-from datetime import datetime
+from cluster_monitor.dto import DockerStatus
 
 DOCKER_UPDATE_INTERVAL_S = 2
 
-@dataclass
-class DockerServiceDetail:
-    name: str
-    namespace: str
-    id: str
-    created: str
-    updated: str
-    mode: dict
-    image: str
-    ports: list
-    replicas: int
-    running_replicas: int
-
-    @property
-    def name_short(self) -> str:
-        return self.name.replace(f"{self.namespace}_", "") if self.namespace else self.name
-
-    @property
-    def image_short(self) -> str:
-        return self.image.split('@')[0] if '@' in self.image else self.image
-
-    @property
-    def image_tag(self) -> str:
-        return self.image_short.split(':')[1] if ':' in self.image_short else '-'
-
-    @property
-    def image_tag_short(self) -> str:
-        tag = self.image_short.split(':')[1] if ':' in self.image_short else '-'
-        return tag[:10] if len(tag) > 10 else tag
-
-    @property
-    def ports_short(self) -> list[str]:
-        return [f"{port['published']}" for port in self.ports]
-    
-    @property
-    def created_short(self):
-        if not self.created:
-            return ''
-        dt = datetime.fromisoformat(self.created.replace('Z', '+00:00'))
-        return dt.strftime('%m/%d %H:%M')
-
-    def to_list(self) -> list:
-        return [self.name, self.id, self.created, self.updated, self.mode, self.image, self.ports, self.replicas]
-    
-    def to_dict(self) -> dict:
-        return {
-            'name': self.name_short,
-            'id': self.id,
-            'created': self.created_short,
-            'updated': self.updated,
-            'mode': self.mode,
-            'image': self.image_tag_short,
-            'ports': self.ports_short,
-            'replicas': f"{self.running_replicas}/{self.replicas}"
-        }
-
-class DockerStats:
+class DockerService:
     def __init__(self):
         self.client = docker.from_env()
         self.low_level_client = docker.APIClient()
@@ -80,9 +24,9 @@ class DockerStats:
         self.running = True
         self.thread = threading.Thread(target=self._docker_stats_update_task, daemon=True)
         self.thread.start()
-        logging.info("DockerStats update thread [%s] started.", self.thread.name)
+        logging.info("Docker update thread [%s] started.", self.thread.name)
 
-    def _update(self):
+    def _update(self) -> None:
         try:
             self.nodes = self.client.nodes.list()
             self.services = self.client.services.list()
@@ -121,7 +65,7 @@ class DockerStats:
             ports.extend(service.ports_short)
         return natsorted(ports)
 
-    def extract_service_details(self) -> list[DockerServiceDetail]:
+    def extract_service_details(self) -> list[DockerStatus]:
         service_details = []
         for service in self.services:
             ports = []
@@ -136,7 +80,7 @@ class DockerStats:
             tasks = self.get_tasks_for_service(service.id)
 
 
-            service_detail = DockerServiceDetail(
+            service_detail = DockerStatus(
                 name=service.name,
                 namespace= service.attrs.get('Spec', {}).get('Labels', {}).get('com.docker.stack.namespace', ''),
                 id=service.id,
@@ -160,7 +104,7 @@ class DockerStats:
                     ports.append(port.get('PublishedPort'))
         return ports
 
-    def _docker_stats_update_task(self):
+    def _docker_stats_update_task(self) -> None:
         logging.debug("Docker update thread is starting up")
         while self.running:
             try:
@@ -183,7 +127,7 @@ class DockerStats:
 
         return False
 
-    def __close__(self):
+    def __close__(self) -> None:
         logging.debug("Closing DockerStats update thread")
         self.running = False
         self.thread.join()

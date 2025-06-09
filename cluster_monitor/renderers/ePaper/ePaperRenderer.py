@@ -1,21 +1,17 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
 
-import sys
 import os
 import threading
 import time
 import logging
 
-from AbstractRenderer import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
+from cluster_monitor import RESOURCES_DIR
+from cluster_monitor.dto import Context
+from cluster_monitor.renderers import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
 from waveshare_epd import epd2in7_V2
 from PIL import Image, ImageDraw, ImageFont
-from ePaper import EPaper
-
-picdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'resources')
-libdir = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), 'lib')
-if os.path.exists(libdir):
-    sys.path.append(libdir)
+from cluster_monitor.renderers.ePaper.ePaperController import EPaperController
 
 DEFAULT_SECTION_Y_PADDING = 5
 DEFAULT_SECTION_X_PADDING = 5
@@ -29,12 +25,12 @@ def cleanup_epaper():
 
 class EPaperRenderer(AbstractRenderer):
     DEFAULT_INIT_INTERVAL = 60*30
-    def __init__(self, init_interval=DEFAULT_INIT_INTERVAL):
+    def __init__(self, context: Context, init_interval=DEFAULT_INIT_INTERVAL):
         self.epd = epd2in7_V2.EPD()
-        self.fontType = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), DEFAULT_FONT_SIZE)
+        self.fontType = ImageFont.truetype(os.path.join(RESOURCES_DIR, 'Font.ttc'), DEFAULT_FONT_SIZE)
         self.Himage = Image.new('1', (self.epd.height, self.epd.width), COLOR_WHITE)
         self.draw = ImageDraw.Draw(self.Himage)
-        self.controller = EPaper()
+        self.controller = EPaperController(context)
         self.init_interval = init_interval
         self.hard_refresh()
 
@@ -156,7 +152,7 @@ class EPaperRenderer(AbstractRenderer):
     def shutdown():
         cleanup_epaper()
 
-    def get_controller(self):
+    def get_controller(self) -> EPaperController:
         return self.controller
 
     def get_current_page(self) -> int:

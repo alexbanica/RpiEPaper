@@ -6,19 +6,12 @@ import time
 import os
 import subprocess
 import re
-from dataclasses import dataclass
+
+from cluster_monitor.dto import ClusterHatStatus
 
 RPI_TIME_FORMAT = "%H:%M"
-RPI_STATS_PYTHON_COMMAND = "PYTHONPATH=/mnt/data/ePaperHat/src python3 -c 'from RpiStats import RpiStats; print(RpiStats())'"
 
-
-@dataclass
-class ClusterHatStatus:
-    is_on: bool
-    has_alert: bool
-    active_node_count: int
-
-class RpiStats:
+class RpiService:
     def __init__(self):
         pass
 
@@ -194,7 +187,7 @@ class RpiStats:
 
         return f"C: {'Y' if status.is_on else 'N'} - N: {status.active_node_count}/5 - F: {'Y' if self.is_fan_on() else 'N'} - {self.get_my_ip_address()}"
 
-    def __str__(self) -> str:
+    def render_stats(self) -> str:
         cpu_usage = self.get_cpu_usage_percentage()
         ram_usage = self.get_ram_usage_percentage()
         temperature = self.get_temperature()

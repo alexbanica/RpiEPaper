@@ -6,68 +6,21 @@ import uuid
 import paramiko
 import time
 import threading
+
 from natsort import natsorted
-from dataclasses import dataclass
 from typing import Optional
+from cluster_monitor.dto import AsyncCommand, AsyncCommandCache
 
 EXTERNAL_UPDATE_INTERVAL_S = 2
 
-
-@dataclass
-class AsyncCommandCacheDto:
-    uuid: str
-    command: str
-    running: bool
-    results: dict[str, str]
-    thread: threading.Thread
-
-@dataclass
-class AsyncCommands:
-    def __init__(self):
-        self.commands = {}
-    def __getitem__(self, uuid: str) -> AsyncCommandCacheDto:
-        return self.commands.get(uuid)
-    def __setitem__(self, uuid: str, value: AsyncCommandCacheDto):
-        self.commands[uuid] = value
-    def __delitem__(self, uuid: str):
-        del self.commands[uuid]
-    def __contains__(self, uuid: str):
-        return uuid in self.commands
-    def __len__(self):
-        return len(self.commands)
-
-    def keys(self):
-        return self.commands.keys()
-
-    def values(self):
-        return self.commands.values()
-
-    def close(self) -> None:
-        for command in self.commands.values():
-            command.running = False
-            command.results = dict()
-        for command in self.commands.values():
-            command.thread.join()
-            logging.info("Thread %s: finishing", command.thread.name)
-
-    def remove_result(self, key: str) -> None:
-        for command in self.values():
-            if key not in command.results:
-                continue
-            command.results.pop(key)
-
-    def __close__(self) -> None:
-        logging.debug("Closing async commands update threads, stopping...")
-        self.close()
-
-class RemoteConnectionManager:
-    def __init__(self, hostnames:list[str], username: str = "alexbanica", ssh_key_path: str = "/home/alexbanica/.ssh/id_rsa"):
+class RemoteService:
+    def __init__(self, hostnames:list[str], username: str, ssh_key_path: str):
         self.username = username
         self.ssh_key_path = ssh_key_path
         self.lock = threading.Lock()
         self.clients = dict()
         self._connect_all(hostnames)
-        self.async_commands = AsyncCommands()
+        self.async_commands = AsyncCommand()
         self.is_update_processing = False
         logging.info(f"Connected to {len(self.clients)} remote hosts")
 
@@ -124,7 +77,7 @@ class RemoteConnectionManager:
 
     def attach_command(self, command: str, command_uuid: Optional[str] = None) -> str:
         command_uuid = command_uuid if command_uuid is not None else str(uuid.uuid5(uuid.NAMESPACE_DNS, command))
-        self.async_commands[command_uuid] = AsyncCommandCacheDto(
+        self.async_commands[command_uuid] = AsyncCommandCache(
             command_uuid,
             command,
             True,
@@ -153,7 +106,7 @@ class RemoteConnectionManager:
                 logging.error(f"Error executing command on host %s: %s", hostname, e)
         return results
 
-    def execute_on_all_async(self, command_uuid: str = None) -> str:
+    def execute_on_all_async(self, command_uuid: str = None) -> None:
         self.async_commands[command_uuid].thread.start()
 
     def get_async_results(self, command_uuid: Optional[str]) -> dict[str, str]:

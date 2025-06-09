@@ -1,0 +1,6 @@
+cluster_monitor:
+  remote_service:
+    ssh:
+      user: ''
+      key_path: ''
+      command: "PYTHONPATH=/mnt/data/ePaperHat python3 -m cluster_monitor -mc"

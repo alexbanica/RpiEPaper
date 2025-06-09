@@ -3,18 +3,19 @@
 
 import logging
 import time
-from AbstractRenderer import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
-from ServerStatusContext import ServerStatusContext
+
+from cluster_monitor.renderers.AbstractRenderer import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
+from cluster_monitor.dto import Context
 
 
 class ConsoleRenderer(AbstractRenderer):
-
-    def __init__(self):
+    def __init__(self, context: Context):
         self.logger = logging.getLogger("ConsoleRenderer")
         logging.basicConfig(level=logging.INFO)  # Configure logging level
         self.section_delimiter = '=' * 50  # Delimiter for new sections
         self.subsection_delimiter = '-' * 50  # Delimiter for new subsections
         self.line_width = 50  # Assumed line width for alignment purposes
+        self.context = context
 
     def draw_text(self, text: str, prev_coords: tuple[int, int, int, int] = NULL_COORDS,
                   alignment: str = RENDER_ALIGN_LEFT, new_line: bool = True) -> tuple[int, int, int, int]:
@@ -30,19 +31,19 @@ class ConsoleRenderer(AbstractRenderer):
 
         # Simulated coordinates: shifting down by 1 unit (just for logging mimicry)
         _, _, x2, y2 = prev_coords
-        return (0, y2, len(text), y2 + 1)
+        return 0, y2, len(text), y2 + 1
 
     def draw_new_section(self, prev_coords: tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int, int, int]:
         self.logger.info(self.section_delimiter)
         _, _, _, y2 = prev_coords
-        return (0, y2, self.line_width, y2 + 1)
+        return 0, y2, self.line_width, y2 + 1
 
     def draw_new_subsection(self, prev_coords: tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int, int, int]:
         self.logger.info(self.subsection_delimiter)
         _, _, _, y2 = prev_coords
-        return (0, y2, self.line_width, y2 + 1)
+        return 0, y2, self.line_width, y2 + 1
 
-    def draw_area(self, x: int, y: int, width: int, height: int, color=None):
+    def draw_area(self, x: int, y: int, width: int, height: int, color=None) -> None:
         self.logger.info(f"Drawing area at ({x}, {y}) with width={width}, height={height}, color={color}")
 
     def refresh(self) -> None:
@@ -51,14 +52,14 @@ class ConsoleRenderer(AbstractRenderer):
     def hard_refresh(self) -> None:
         self.logger.info("Hard refreshing the rendered content")
 
-    def draw_loading(self):
+    def draw_loading(self) -> None:
         self.logger.info("Loading...")
         time.sleep(5)
 
-    def draw_apply(self):
+    def draw_apply(self) -> None:
         pass
 
-    def __close__(self):
+    def __close__(self) -> None:
         self.logger.info("Closing ConsoleRenderer")
 
     def draw_paragraph(self, strings: list[str], prev_coords: tuple[int, int, int, int], current_line: str = "") -> \
@@ -84,15 +85,15 @@ class ConsoleRenderer(AbstractRenderer):
         return self
 
     def get_current_page(self) -> int:
-        return ServerStatusContext.context.default_page
+        return self.context.default_page
 
     def get_total_pages(self) -> int:
         return 2
 
-    def get_current_scroll_step(self):
+    def get_current_scroll_step(self) -> int:
         return 100
 
-    def get_current_scroll_offset(self):
+    def get_current_scroll_offset(self) -> int:
         return 0
 
     def draw_table(self, headers: dict[str, str], data: list[dict], prev_coords: tuple[int, int, int, int]) -> tuple[
