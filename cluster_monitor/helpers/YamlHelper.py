@@ -32,7 +32,8 @@ class YamlHelper:
         remote_config = config.get('cluster_monitor', {}).get('remote_service', {}).get('ssh', {})
         ssh_user = remote_config.get('user', "")
         ssh_key_path = remote_config.get('key_path', "")
-        ssh_command = remote_config.get('command', "")
+        ssh_rpi_status_command = remote_config.get('command_rpi_status', "")
+        ssh_rpi_hdd_status_command = remote_config.get('command_rpi_hdd_status', "")
 
         if ssh_user:
             context.remote_ssh_username = ssh_user
@@ -40,5 +41,8 @@ class YamlHelper:
         if ssh_key_path:
             context.remote_ssh_key_path = ssh_key_path
 
-        if ssh_command:
-            context.remote_ssh_command = ssh_command
+        if ssh_rpi_status_command:
+            context.remote_ssh_rpi_status_command = ssh_rpi_status_command
+
+        if ssh_rpi_hdd_status_command:
+            context.remote_ssh_rpi_hdd_status_command = ssh_rpi_hdd_status_command

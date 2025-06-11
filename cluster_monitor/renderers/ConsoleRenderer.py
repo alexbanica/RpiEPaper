@@ -5,7 +5,7 @@ import logging
 import time
 
 from cluster_monitor.renderers.AbstractRenderer import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
-from cluster_monitor.dto import Context
+from cluster_monitor.dto import Context, DiskUsageInfo
 
 
 class ConsoleRenderer(AbstractRenderer):

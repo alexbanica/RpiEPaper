@@ -9,14 +9,19 @@ def _console_parse_arguments(context: Context) -> None:
     parser.add_argument('-r', '--renderer', choices=ARG_RENDERER_CHOICES, default=RENDERER_TYPE_EPAPER,
                         help='Choose renderer type: console or epaper')
     parser.add_argument('-p', '--page', choices=ARG_PAGE_CHOICES, default=1,
-                        help='Choose default page nr: 1 or 2')
+                        help='Choose default page nr: 1, 2, 3, 4')
     parser.add_argument('-mc', '--monitor-client', action='store_true', default=False,
+                        help='Choose if you execute this as a monitor client')
+    parser.add_argument('-mc-hdd', '--monitor-client-hdd-stats', action='store_true', default=False,
                         help='Choose if you execute this as a monitor client')
 
     args = parser.parse_args()
     context.default_page = int(args.page)
     context.render_type = args.renderer
     context.is_monitor_client = args.monitor_client
+    if args.monitor_client_hdd_stats:
+        context.is_monitor_client = True
+        context.show_hdd_stats = True
 
 if __name__ == "__main__":
     context = Context(1, RENDERER_TYPE_EPAPER)
@@ -24,7 +29,7 @@ if __name__ == "__main__":
 
     if context.is_monitor_client:
         from cluster_monitor.MonitorClient import MonitorClient
-        MonitorClient().render_rpi_stats()
+        MonitorClient().render(context)
     else:
         from cluster_monitor.main import main
         main(context)

@@ -3,6 +3,8 @@
 
 from abc import ABC, abstractmethod
 
+from cluster_monitor.dto import DiskUsageInfo
+
 RENDER_ALIGN_CENTER = "center"
 RENDER_ALIGN_LEFT = "left"
 RENDER_ALIGN_RIGHT = "right"

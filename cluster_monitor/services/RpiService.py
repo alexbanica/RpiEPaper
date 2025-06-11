@@ -2,12 +2,13 @@
 # -*- coding:utf-8 -*-
 
 import logging
+import shutil
 import time
 import os
 import subprocess
 import re
 
-from cluster_monitor.dto import ClusterHatStatus
+from cluster_monitor.dto import ClusterHatStatus, DiskUsageInfo
 
 RPI_TIME_FORMAT = "%H:%M"
 
@@ -37,7 +38,7 @@ class RpiService:
             logging.debug(f"Error checking WiFi status: {e}")
             return False
 
-    def get_my_ip_address(self) -> str:
+    def _get_my_ip_address(self) -> str:
         try:
             output = subprocess.check_output(['ifconfig'], text=True)
             # Look for eth0 or wlan0 interface
@@ -75,7 +76,7 @@ class RpiService:
             logging.debug("Unable to read Raspberry Pi temperature.")
             return "T:N/A"
 
-    def get_ram_usage(self) -> tuple:
+    def _get_ram_usage(self) -> tuple:
         try:
             with open('/proc/meminfo', 'r') as mem_file:
                 meminfo = mem_file.readlines()
@@ -95,9 +96,9 @@ class RpiService:
             logging.debug(f"Error reading RAM usage: {e}")
             return (0, 0)  # Default to 0 if there’s an error
 
-    def get_ram_usage_percentage(self) -> float:
+    def _get_ram_usage_percentage(self) -> float:
         try:
-            used_ram, total_ram = self.get_ram_usage()
+            used_ram, total_ram = self._get_ram_usage()
             if total_ram > 0:
                 return round((used_ram / total_ram) * 100, 1)
             return 0.0
@@ -105,7 +106,7 @@ class RpiService:
             logging.debug(f"Error calculating memory usage percentage: {e}")
             return 0.0
 
-    def get_cpu_usage_percentage(self) -> float:
+    def _get_cpu_usage_percentage(self) -> float:
         try:
             # Read initial CPU stats
             with open('/proc/stat', 'r') as stat_file:
@@ -137,20 +138,29 @@ class RpiService:
             logging.debug(f"Error reading CPU usage: {e}")
             return 0.0  # Return 0% on error
 
-    def get_used_disk_percentage(self) -> float:
-        """
-        Retrieves the percentage of used disk space.
-        
-        Returns:
-            float: Percentage of disk space used.
-        """
+    def __get_path_usage_info(self, path: str) -> DiskUsageInfo:
         try:
-            statvfs = os.statvfs('/')
-            # Calculate total and available disk space in bytes
-            total_space = statvfs.f_blocks * statvfs.f_frsize
-            free_space = statvfs.f_bfree * statvfs.f_frsize
-            used_space_percentage = ((total_space - free_space) / total_space) * 100 if total_space > 0 else 0.0
-            return round(used_space_percentage, 1)
+            # Get disk usage stats for the given path
+            usage = shutil.disk_usage(path)
+
+            total_size = usage.total  # Total space in bytes
+            used_size = usage.used    # Used space in bytes
+            free_size = usage.free    # Free space in bytes
+            percentage_used = (used_size / total_size) * 100 if total_size > 0 else 0.0  # Calculate percentage used
+
+            return DiskUsageInfo(
+                path=path,
+                total_size=total_size,
+                used_size=used_size,
+                free_size=free_size,
+                used_percentage=round(percentage_used, 1)
+            )
+        except Exception as e:
+            raise ValueError(f"Error retrieving disk space info for {path}: {e}")
+
+    def _get_local_disk_usage(self) -> float:
+        try:
+            return self.__get_path_usage_info('/').used_percentage
         except Exception as e:
             logging.debug(f"Error retrieving disk space usage: {e}")
             return 0.0
@@ -182,17 +192,27 @@ class RpiService:
         status = self._get_clusterhat_status()
         return status.is_on
 
+    def get_disk_usages(self) -> list[DiskUsageInfo]:
+        disk_usage_info = []
+        for disk in ['/', '/mnt/data', '/mnt/ssd_data']:
+            try:
+                disk_usage_info.append(self.__get_path_usage_info(disk))
+            except ValueError as e:
+                logging.warning(f"Error retrieving disk space info for {disk}: {e}")
+
+        return disk_usage_info
+
     def render_cluster_hat_status(self) -> str:
         status = self._get_clusterhat_status()
 
-        return f"C: {'Y' if status.is_on else 'N'} - N: {status.active_node_count}/5 - F: {'Y' if self.is_fan_on() else 'N'} - {self.get_my_ip_address()}"
+        return f"C: {'Y' if status.is_on else 'N'} - N: {status.active_node_count}/5 - F: {'Y' if self.is_fan_on() else 'N'} - {self._get_my_ip_address()}"
 
     def render_stats(self) -> str:
-        cpu_usage = self.get_cpu_usage_percentage()
-        ram_usage = self.get_ram_usage_percentage()
+        cpu_usage = self._get_cpu_usage_percentage()
+        ram_usage = self._get_ram_usage_percentage()
         temperature = self.get_temperature()
         is_fan_on = self.is_fan_on()
-        hdd_usage = self.get_used_disk_percentage()
+        hdd_usage = self._get_local_disk_usage()
         hostname = self.get_hostname().upper()
 
         return  f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C {'[F]' if is_fan_on else ''}"

@@ -81,12 +81,20 @@ class ClusterMonitor:
 
         return coords
 
-    def draw_docker_stats_pag_3(self, renderer: AbstractRenderer, prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
+    def draw_docker_stats_pag_3(self, renderer: AbstractRenderer, command_uuid: Optional[str], prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
         if self.docker_service is None:
             return prev_coords
 
-        # Draw Docker Title
-        stats_coords = renderer.draw_text("Docker Swarm Stats Page 3", prev_coords, RENDER_ALIGN_CENTER)
+        stats_coords = renderer.draw_text("Hard Disk Usages", prev_coords, RENDER_ALIGN_CENTER)
+
+        #Maybe do this for all pi's ?
+        #results = self.remote_connection_service.get_async_results(command_uuid)
+
+        prev_coords = renderer.draw_new_subsection(stats_coords)
+        disk_usages = self.rpi_service.get_disk_usages()
+        prev_coords = renderer.draw_text(f"{self.rpi_service.get_hostname()}: #{len(disk_usages)}", prev_coords)
+        for disk_usage in disk_usages:
+            prev_coords = renderer.draw_text(f" - {disk_usage.render()}", prev_coords, RENDER_ALIGN_LEFT)
 
         return stats_coords
 
@@ -111,8 +119,8 @@ class ClusterMonitor:
     def start(self) -> None:
         logging.info("Cluster Monitor display. Press Ctrl+C to exit.")
         renderer = self.renderer_manager.get_renderer()
-        command_uuid = self.remote_connection_service.attach_command(self.context.remote_ssh_command)
-        self.remote_connection_service.execute_on_all_async(command_uuid)
+        rpi_stats_command_uuid = self.remote_connection_service.attach_command(self.context.remote_ssh_rpi_status_command)
+        self.remote_connection_service.execute_on_all_async(rpi_stats_command_uuid)
         current_drawing_page = renderer.get_controller().get_current_page()
 
         while self.is_running:
@@ -135,11 +143,11 @@ class ClusterMonitor:
                         self.draw_rpi_stats(renderer, coords)
                     else:
                         if current_drawing_page == 1:
-                            self.draw_docker_stats_pag_1(renderer, command_uuid, coords)
+                            self.draw_docker_stats_pag_1(renderer, rpi_stats_command_uuid, coords)
                         elif current_drawing_page == 2:
                             self.draw_docker_stats_pag_2(renderer, coords)
                         elif current_drawing_page == 3:
-                            self.draw_docker_stats_pag_3(renderer, coords)
+                            self.draw_docker_stats_pag_3(renderer, "", coords)
                         elif current_drawing_page == 4:
                             self.draw_docker_stats_pag_4(renderer, coords)
                         else:

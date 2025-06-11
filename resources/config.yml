@@ -3,4 +3,5 @@ cluster_monitor:
     ssh:
       user: ''
       key_path: ''
-      command: "PYTHONPATH=/mnt/data/ePaperHat python3 -m cluster_monitor -mc"
+      command_rpi_status: "PYTHONPATH=/mnt/data/ePaperHat python3 -m cluster_monitor -mc"
+      command_rpi_hdd_status: "PYTHONPATH=/mnt/data/ePaperHat python3 -m cluster_monitor -mc-hdd"

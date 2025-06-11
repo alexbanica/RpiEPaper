@@ -7,7 +7,7 @@ import time
 import logging
 
 from cluster_monitor import RESOURCES_DIR
-from cluster_monitor.dto import Context
+from cluster_monitor.dto import Context, DiskUsageInfo
 from cluster_monitor.renderers import AbstractRenderer, NULL_COORDS, RENDER_ALIGN_LEFT, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER
 from waveshare_epd import epd2in7_V2
 from PIL import Image, ImageDraw, ImageFont
@@ -19,6 +19,7 @@ DEFAULT_FONT_SIZE = 11
 DEFAULT_TABLE_FONT_SIZE = 10
 COLOR_WHITE=0xff
 COLOR_BLACK=0x00
+COLOR_GRAY=0x80
 
 def cleanup_epaper():
     epd2in7_V2.epdconfig.module_exit(cleanup=True)
@@ -185,7 +186,7 @@ class EPaperRenderer(AbstractRenderer):
 
         current_y += HEADER_BORDER_WIDTH
         header_height = font_size + 2 * DEFAULT_SECTION_Y_PADDING
-        table_font = ImageFont.truetype(os.path.join(picdir, 'Font.ttc'), font_size)
+        table_font = ImageFont.truetype(os.path.join(RESOURCES_DIR, 'Font.ttc'), font_size)
 
         # Draw header cells
         for i, (key, header_text) in enumerate(headers.items()):
@@ -228,3 +229,7 @@ class EPaperRenderer(AbstractRenderer):
 
         return (DEFAULT_SECTION_X_PADDING, start_y,
                 self.epd.height - DEFAULT_SECTION_X_PADDING, current_y)
+
+
+
+
