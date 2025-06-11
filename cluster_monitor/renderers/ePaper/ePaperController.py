@@ -11,10 +11,10 @@ from cluster_monitor.dto import Context
 class EPaperController:
     def __init__(self, context: Context):
 
+        self.key1 = Button(5)
         self.key2 = Button(6)
         self.key3 = Button(13)
-        self.key1 = Button(5)
-        #self.key4 = Button(17)
+        self.key4 = Button(19)
 
         self.running = True
         self.current_page = context.default_page
@@ -48,7 +48,7 @@ class EPaperController:
                     f"Current offset: {self.scroll_offset}, step: {self.scroll_step}, max offset: {1000 - self.scroll_step}"
                 )
                 if self.current_page == 2:
-                    setattr(self, 'scroll_offset',  max(0, self.scroll_offset + self.scroll_step))
+                    setattr(self, 'scroll_offset',  max(0, self.scroll_offset - self.scroll_step))
                 else:
                     setattr(self, 'current_page', 3)
                     setattr(self, 'scroll_offset', 0)
@@ -65,7 +65,7 @@ class EPaperController:
             self.key1.when_pressed = __key1_pressed
             self.key2.when_pressed = __key2_pressed
             self.key3.when_pressed = __key3_pressed
-            #self.key4.when_pressed = __key4_pressed
+            self.key4.when_pressed = __key4_pressed
             time.sleep(0.2)
 
     def get_current_page(self):
