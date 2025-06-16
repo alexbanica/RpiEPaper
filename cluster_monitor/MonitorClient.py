@@ -17,7 +17,7 @@ class MonitorClient:
         print(self.rpi_service.render_stats())
 
     def render_disk_stats(self):
-        for disk_usage in self.rpi_service.get_disk_usages():
+        for disk_usage in self.rpi_service.get_disk_usages(['/']):
             print(disk_usage.render())
 
     def render(self, context: Context):

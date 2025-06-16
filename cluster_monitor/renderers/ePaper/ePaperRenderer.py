@@ -106,14 +106,15 @@ class EPaperRenderer(AbstractRenderer):
     def refresh(self):
         self._clear_specific_area((0, 0, self.epd.height, self.epd.width))
 
-    def draw_loading(self):
-        center_y = self.epd.width // 2
-        text_y_offset = 30
-
-        # Draw the "Loading..." text
+    def draw_loading(self, prev_coords: tuple[int, int, int, int]):
+        _, _, _, y2 = prev_coords
         text_width = self.draw.textlength("Loading...", font=self.fontType)
+
+        center_y = y2 + (self.epd.width - y2) // 2
+        center_x = (self.epd.height - text_width) // 2
+
         self.draw.text(
-            ((self.epd.height - text_width) // 2, center_y + text_y_offset),
+            (center_x, center_y),
             "Loading...",
             font=self.fontType,
             fill=COLOR_BLACK

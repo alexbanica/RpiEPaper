@@ -33,7 +33,7 @@ class AbstractRenderer(ABC):
         pass
 
     @abstractmethod
-    def draw_loading(self) -> None:
+    def draw_loading(self, prev_coords: tuple[int, int, int, int]) -> None:
         pass
 
     @abstractmethod

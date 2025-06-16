@@ -52,7 +52,7 @@ class ConsoleRenderer(AbstractRenderer):
     def hard_refresh(self) -> None:
         self.logger.info("Hard refreshing the rendered content")
 
-    def draw_loading(self) -> None:
+    def draw_loading(self, prev_coords: tuple[int, int, int, int]) -> None:
         self.logger.info("Loading...")
         time.sleep(5)
 
@@ -88,7 +88,7 @@ class ConsoleRenderer(AbstractRenderer):
         return self.context.default_page
 
     def get_total_pages(self) -> int:
-        return 2
+        return 4
 
     def get_current_scroll_step(self) -> int:
         return 100

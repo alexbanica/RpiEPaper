@@ -86,15 +86,17 @@ class ClusterMonitor:
             return prev_coords
 
         stats_coords = renderer.draw_text("Hard Disk Usages", prev_coords, RENDER_ALIGN_CENTER)
+        coords = renderer.draw_new_subsection(stats_coords)
 
-        #Maybe do this for all pi's ?
-        #results = self.remote_connection_service.get_async_results(command_uuid)
-
-        prev_coords = renderer.draw_new_subsection(stats_coords)
         disk_usages = self.rpi_service.get_disk_usages()
-        prev_coords = renderer.draw_text(f"{self.rpi_service.get_hostname()}: #{len(disk_usages)}", prev_coords)
         for disk_usage in disk_usages:
-            prev_coords = renderer.draw_text(f" - {disk_usage.render()}", prev_coords, RENDER_ALIGN_LEFT)
+            coords = renderer.draw_text(f"{self.rpi_service.get_hostname()} - {disk_usage.render()}", coords, RENDER_ALIGN_LEFT)
+
+        results = self.remote_connection_service.get_async_results(command_uuid)
+        for hostname, stats in results.items():
+            if hostname == self.rpi_service.get_hostname():
+                continue
+            coords = renderer.draw_text(f"{hostname} - {stats}", coords, RENDER_ALIGN_LEFT)
 
         return stats_coords
 
@@ -120,7 +122,9 @@ class ClusterMonitor:
         logging.info("Cluster Monitor display. Press Ctrl+C to exit.")
         renderer = self.renderer_manager.get_renderer()
         rpi_stats_command_uuid = self.remote_connection_service.attach_command(self.context.remote_ssh_rpi_status_command)
+        rpi_hdd_command_uuid = self.remote_connection_service.attach_command(self.context.remote_ssh_rpi_hdd_status_command)
         self.remote_connection_service.execute_on_all_async(rpi_stats_command_uuid)
+        self.remote_connection_service.execute_on_all_async(rpi_hdd_command_uuid)
         current_drawing_page = renderer.get_controller().get_current_page()
 
         while self.is_running:
@@ -132,13 +136,15 @@ class ClusterMonitor:
                     continue
                 renderer.refresh()
                 self.remote_connection_service.update_hostnames(self.docker_service.extract_node_hostnames())
+
+                renderer.draw_text(self.rpi_service.get_current_time() + renderer.draw_pagination(), NULL_COORDS, RENDER_ALIGN_RIGHT)
+                coords = renderer.draw_text(self.rpi_service.render_cluster_hat_status())
+                coords = renderer.draw_new_section(coords)
+
                 if self._is_busy():
                     logging.info("Docker or remote connection busy. Waiting for completion...")
-                    renderer.draw_loading()
+                    renderer.draw_loading(coords)
                 else:
-                    renderer.draw_text(self.rpi_service.get_current_time() + renderer.draw_pagination(), NULL_COORDS, RENDER_ALIGN_RIGHT)
-                    coords = renderer.draw_text(self.rpi_service.render_cluster_hat_status())
-                    coords = renderer.draw_new_section(coords)
                     if not self.rpi_service.is_cluster_hat_on():
                         self.draw_rpi_stats(renderer, coords)
                     else:
@@ -147,7 +153,7 @@ class ClusterMonitor:
                         elif current_drawing_page == 2:
                             self.draw_docker_stats_pag_2(renderer, coords)
                         elif current_drawing_page == 3:
-                            self.draw_docker_stats_pag_3(renderer, "", coords)
+                            self.draw_docker_stats_pag_3(renderer, rpi_hdd_command_uuid, coords)
                         elif current_drawing_page == 4:
                             self.draw_docker_stats_pag_4(renderer, coords)
                         else:

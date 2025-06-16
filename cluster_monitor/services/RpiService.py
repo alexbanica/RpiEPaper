@@ -188,13 +188,20 @@ class RpiService:
 
         return ClusterHatStatus(px_count > 1, hat_alert == 1, px_count)
 
+    def get_cpu_architecture(self) -> str:
+        try:
+            return os.uname().machine
+        except Exception as e:
+            logging.debug(f"Error retrieving CPU architecture: {e}")
+            return "unknown"
+
     def is_cluster_hat_on(self) -> bool:
         status = self._get_clusterhat_status()
         return status.is_on
 
-    def get_disk_usages(self) -> list[DiskUsageInfo]:
+    def get_disk_usages(self, disks: list[str] = ['/', '/mnt/data', '/mnt/ssd_data']) -> list[DiskUsageInfo]:
         disk_usage_info = []
-        for disk in ['/', '/mnt/data', '/mnt/ssd_data']:
+        for disk in disks:
             try:
                 disk_usage_info.append(self.__get_path_usage_info(disk))
             except ValueError as e:
@@ -214,5 +221,6 @@ class RpiService:
         is_fan_on = self.is_fan_on()
         hdd_usage = self._get_local_disk_usage()
         hostname = self.get_hostname().upper()
+        arch = self.get_cpu_architecture()
 
-        return  f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C {'[F]' if is_fan_on else ''}"
+        return  f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C {'[F]' if is_fan_on else ''} - {arch}"
