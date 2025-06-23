@@ -22,6 +22,7 @@ class DockerService:
         self._update()
 
         self.running = True
+        self._is_healthy = True
         self.thread = threading.Thread(target=self._docker_stats_update_task, daemon=True)
         self.thread.start()
         logging.info("Docker update thread [%s] started.", self.thread.name)
@@ -111,11 +112,13 @@ class DockerService:
                 logging.debug("Updating Docker stats")
                 self.nodes = self.client.nodes.list()
                 self.services = self.client.services.list()
+                self._is_healthy = True
             except KeyboardInterrupt:
                 logging.warning("Update interrupted by user")
                 self.running = False
             except Exception as e:
                 logging.error(f"Error pinging Docker daemon: %s", e)
+                self._is_healthy = False
             finally:
                 time.sleep(DOCKER_UPDATE_INTERVAL_S)
 
@@ -135,3 +138,8 @@ class DockerService:
 
     def get_tasks_for_service(self, service_id: str) -> list:
         return self.low_level_client.tasks(filters={"service": service_id})
+
+    def is_healthy(self) -> bool:
+        if not self._is_healthy:
+            logging.error("Docker daemon is not healthy. Please check the logs for more details.")
+        return self._is_healthy

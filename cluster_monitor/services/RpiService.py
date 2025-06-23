@@ -14,7 +14,8 @@ RPI_TIME_FORMAT = "%H:%M"
 
 class RpiService:
     def __init__(self):
-        pass
+        self.cluster_hat_alert_enabled = False
+        self.set_cluster_hat_alert(False)
 
     def get_current_time(self) -> str:
         try:
@@ -224,3 +225,56 @@ class RpiService:
         arch = self.get_cpu_architecture()
 
         return  f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C {'[F]' if is_fan_on else ''} - {arch}"
+
+    def get_lines_from_file(self, filename: str, nr_lines: int = 10) -> list[str]:
+        try:
+            lines = []
+            with open(filename, 'r') as file:
+                lines = file.readlines()[-nr_lines:]
+                file.close()
+            return [line.rstrip() for line in lines]
+        except Exception as e:
+            logging.error(f"Error reading file {filename}: {e}")
+            return ""
+
+    def is_healthy(self) -> bool:
+        status = self._get_clusterhat_status()
+        is_healthy = not status.is_on or status.active_node_count == 5
+
+        if not is_healthy:
+            logging.error(f"Clusterhat is not healthy. Status: {status}")
+
+        return is_healthy
+
+    def set_cluster_hat_alert(self, enable: bool) -> None:
+        if self.cluster_hat_alert_enabled == enable:
+            return
+        self.cluster_hat_alert_enabled = enable
+        try:
+            status = 'on' if enable else 'off'
+            subprocess.check_call(['clusterhat', 'alert', status])
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Failed to set clusterhat alert to {status}: {e}")
+            raise RuntimeError(f'Failed to set clusterhat alert: {e}')
+
+    def render_logs(self, lines: list[str]) -> list[str]:
+        processed_lines = []
+        for line in lines:
+            try:
+                # Regex to parse the log line
+                match = re.match(r'^.*?(\d{2}:\d{2}):\d{2},\d{3} \[(\w+)].*?: (.*)$', line)
+                if match:
+                    # Extract time, log level's first letter, and remainder log message
+                    time = match.group(1)
+                    log_level = match.group(2)[0]  # First letter of log level
+                    message = match.group(3)
+
+                    # Remove various thread info patterns from the message
+                    message = re.sub(r"\[?(?:Thread-\d+|MainThread).*\]?: ?", "", message)
+                    message = re.sub(r"\[Thread-\d+.*\]", "", message)
+
+                    # Recreate the line
+                    processed_lines.append(f"{time} [{log_level}] {message}")
+            except Exception as e:
+                logging.error(f"Error processing line: {line}. Error: {e}")
+        return processed_lines

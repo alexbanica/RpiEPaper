@@ -19,6 +19,7 @@ class ClusterMonitor:
 
     def __init__(self, context: Context):
         self.is_running = True
+        self._is_healthy = True
         self.context = context
         self.rpi_service = RpiService()
         self.docker_service = DockerService()
@@ -105,9 +106,17 @@ class ClusterMonitor:
             return prev_coords
 
         # Draw Docker Title
-        stats_coords = renderer.draw_text("Docker Swarm Stats Page 4", prev_coords, RENDER_ALIGN_CENTER)
+        prev_coords = renderer.draw_text("Cluster Logs", prev_coords, RENDER_ALIGN_CENTER)
+        prev_coords = renderer.draw_new_subsection(prev_coords)
+        log_lines = self.rpi_service.render_logs(
+            self.rpi_service.get_lines_from_file('/var/log/cluster_monitor.log')
+        )
 
-        return stats_coords
+        for line in log_lines:
+            #logging.warning(line)
+            prev_coords = renderer.draw_text(line, prev_coords, RENDER_ALIGN_LEFT)
+
+        return prev_coords
 
     def _is_busy(self) -> bool:
         if not self.rpi_service.is_cluster_hat_on():
@@ -117,6 +126,12 @@ class ClusterMonitor:
         if self.remote_connection_service.is_busy():
             return True
         return False
+
+    def is_healthy(self) -> bool:
+        return self._is_healthy and \
+            self.docker_service.is_healthy() and \
+            self.remote_connection_service.is_healthy() and \
+            self.rpi_service.is_healthy()
 
     def start(self) -> None:
         logging.info("Cluster Monitor display. Press Ctrl+C to exit.")
@@ -134,6 +149,12 @@ class ClusterMonitor:
                     current_drawing_page = renderer.get_controller().get_current_page()
                     renderer.hard_refresh()
                     continue
+
+                if not self.is_healthy():
+                    self.rpi_service.set_cluster_hat_alert(True)
+                else:
+                    self.rpi_service.set_cluster_hat_alert(False)
+
                 renderer.refresh()
                 self.remote_connection_service.update_hostnames(self.docker_service.extract_node_hostnames())
 
@@ -160,20 +181,26 @@ class ClusterMonitor:
                             logging.warning(f"Invalid drawing page: {current_drawing_page}")
 
                 renderer.draw_apply()
+                self._is_healthy = True
                 time.sleep(DEFAULT_DISPLAY_UPDATE_INTERVAL_S)
-            except Exception as e:
-                logging.error(f"Error updating display: {e}")
+            except KeyboardInterrupt as e:
+                logging.warning("Monitor interrupted by user")
                 self.__close__()
                 raise e
+            except Exception as e:
+                logging.error(f"Error updating display: {e}")
+                self._is_healthy = False
+                time.sleep(DEFAULT_DISPLAY_UPDATE_INTERVAL_S)
 
     def __close__(self) -> None:
-        logging.info("Closing Server Status")
+        logging.info("Closing Cluster Monitor")
         self.is_running = False
+        self.rpi_service.set_cluster_hat_alert(False)
         self.renderer_manager.__close__()
         if self.rpi_service.is_cluster_hat_on():
             self.docker_service.__close__()
             self.remote_connection_service.__close__()
-        logging.info("Server Status shutting down")
+        logging.info("Cluster Monitor shut down")
 
 
     def _setup_signal_handlers(self) -> None:

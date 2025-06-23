@@ -35,7 +35,7 @@ class RemoteService:
             username=self.username,
             key_filename=self.ssh_key_path
         )
-        logging.debug(f"Connected to {hostname}")
+        logging.info(f"Connected to {hostname}")
 
         return ssh_client
 
@@ -56,7 +56,7 @@ class RemoteService:
 
     def _connect_all(self, hostnames: list[str]) -> None:
         if len(self.clients) > len(hostnames):
-            logging.debug("Removing disconnected clients... %s, %s", self.clients.keys(), hostnames)
+            logging.info("Removing disconnected clients... %s, %s", self.clients.keys(), hostnames)
             active_client_hostnames = list(self.clients.keys())
             for active_client_hostname in active_client_hostnames:
                 if active_client_hostname not in hostnames:
@@ -68,7 +68,7 @@ class RemoteService:
 
     def __close__(self) -> None:
         self.async_commands.__close__()
-        logging.debug("Closing SSH connections...")
+        logging.info("Closing SSH connections...")
         for client in self.clients.values():
             client.close()
 
@@ -84,7 +84,7 @@ class RemoteService:
             {},
            self.__create_command_background_thread(command_uuid)
         )
-        logging.debug(f"Attached command %s [%s] to async commands cache", command, command_uuid)
+        logging.info(f"Attached command %s [%s] to async commands cache", command, command_uuid)
         return command_uuid
 
     def _execute(self, hostname: str, command: str) -> str:
@@ -167,5 +167,15 @@ class RemoteService:
             return False
 
         return self.async_commands[command_uuid].running and len(self.async_commands[command_uuid].results) == 0
+
+
+    def is_healthy(self) -> bool:
+        for client in self.clients.values():
+            if self._is_ssh_client_closed(client):
+                logging.error("At least one SSH client is closed")
+                return False
+
+        return True
+
 
 
