@@ -222,9 +222,8 @@ class RpiService:
         is_fan_on = self.is_fan_on()
         hdd_usage = self._get_local_disk_usage()
         hostname = self.get_hostname().upper()
-        arch = self.get_cpu_architecture()
 
-        return  f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C {'[F]' if is_fan_on else ''} - {arch}"
+        return  f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C {'[F]' if is_fan_on else ''}"
 
     def get_lines_from_file(self, filename: str, nr_lines: int = 10) -> list[str]:
         try:

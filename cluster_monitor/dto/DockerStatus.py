@@ -18,6 +18,7 @@ class DockerStatus:
     ports: list
     replicas: int
     running_replicas: int
+    deployed_to: list
 
     @property
     def name_short(self) -> str:
@@ -59,5 +60,6 @@ class DockerStatus:
             'mode': self.mode,
             'image': self.image_tag_short,
             'ports': self.ports_short,
+            'deployed_to': self.deployed_to,
             'replicas': f"{self.running_replicas}/{self.replicas}"
         }

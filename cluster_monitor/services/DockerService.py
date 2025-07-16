@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
+from asyncio import tasks
 
 import docker
 import logging
@@ -77,13 +78,13 @@ class DockerService:
                         'target': port.get('TargetPort'),
                         'protocol': port.get('Protocol')
                     })
-            # Fetch the tasks of the service
-            tasks = self.get_tasks_for_service(service.id)
 
+            tasks = self.get_tasks_for_service(service.id)
+            node_hostnames = [node.attrs.get('Description', {}).get('Hostname', '') for node in self._get_nodes_for_service(service.id)]
 
             service_detail = DockerStatus(
                 name=service.name,
-                namespace= service.attrs.get('Spec', {}).get('Labels', {}).get('com.docker.stack.namespace', ''),
+                namespace=service.attrs.get('Spec', {}).get('Labels', {}).get('com.docker.stack.namespace', ''),
                 id=service.id,
                 created=service.attrs.get('CreatedAt', ''),
                 updated=service.attrs.get('UpdatedAt', ''),
@@ -91,7 +92,8 @@ class DockerService:
                 image=service.attrs.get('Spec', {}).get('TaskTemplate', {}).get('ContainerSpec', {}).get('Image', ''),
                 ports=ports,
                 replicas=service.attrs.get('Spec', {}).get('Mode', {}).get('Replicated', {}).get('Replicas', 0),
-                running_replicas=sum(1 for task in tasks if task['Status']['State'] == 'running')
+                running_replicas=sum(1 for task in tasks if task['Status']['State'] == 'running'),
+                deployed_to=node_hostnames
             )
             service_details.append(service_detail)
 
@@ -138,6 +140,22 @@ class DockerService:
 
     def get_tasks_for_service(self, service_id: str) -> list:
         return self.low_level_client.tasks(filters={"service": service_id})
+
+    def _get_nodes_for_service(self, service_id: str) -> list:
+        service_tasks = self.get_tasks_for_service(service_id)
+        nodes = []
+        node_ids = []
+        for task in service_tasks:
+            if task['Status']['State'] != 'running':
+                continue
+            node_ids.append(task.get('NodeID'))
+
+        for node in self.nodes:
+            if node.id not in node_ids:
+                continue
+            nodes.append(node)
+
+        return nodes
 
     def is_healthy(self) -> bool:
         if not self._is_healthy:
