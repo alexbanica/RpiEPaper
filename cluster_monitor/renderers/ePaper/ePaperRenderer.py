@@ -25,7 +25,7 @@ def cleanup_epaper():
     epd2in7_V2.epdconfig.module_exit(cleanup=True)
 
 class EPaperRenderer(AbstractRenderer):
-    DEFAULT_INIT_INTERVAL = 60*5
+    DEFAULT_INIT_INTERVAL = 60*10
     def __init__(self, context: Context, init_interval=DEFAULT_INIT_INTERVAL):
         self.epd = epd2in7_V2.EPD()
         self.fontType = ImageFont.truetype(os.path.join(RESOURCES_DIR, 'Font.ttc'), DEFAULT_FONT_SIZE)
