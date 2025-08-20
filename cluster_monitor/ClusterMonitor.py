@@ -128,10 +128,13 @@ class ClusterMonitor:
         return False
 
     def is_healthy(self) -> bool:
+
+        are_all_nodes_healthy = self.rpi_service.get_clusterhat_status().active_node_count == len(self.remote_connection_service.clients)
+
         return self._is_healthy and \
             self.docker_service.is_healthy() and \
             self.remote_connection_service.is_healthy() and \
-            self.rpi_service.is_healthy()
+            self.rpi_service.is_healthy() and are_all_nodes_healthy
 
     def start(self) -> None:
         logging.info("Cluster Monitor display. Press Ctrl+C to exit.")

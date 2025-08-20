@@ -40,7 +40,7 @@ class EPaperRenderer(AbstractRenderer):
 
     def hard_refresh(self):
         logging.info("Hard refreshing the rendered content")
-        self.epd.init()
+        self.epd.init_Fast()
         self.epd.Clear()
         self.epd.display_Base_color(COLOR_WHITE)
         self.refresh()
@@ -94,7 +94,7 @@ class EPaperRenderer(AbstractRenderer):
         self.controller.__close__()
         logging.info("Closing EpaperRenderer")
         self.init_interval = 0
-        self.epd.init()
+        self.epd.init_Fast()
         self.epd.Clear()
         self.epd.sleep()
         logging.info("EpaperRenderer closed")

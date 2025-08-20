@@ -139,6 +139,22 @@ class RpiService:
             logging.debug(f"Error reading CPU usage: {e}")
             return 0.0  # Return 0% on error
 
+    def _is_docker_running(self) -> bool:
+        try:
+            subprocess.check_output(['docker', 'info'], stderr=subprocess.DEVNULL)
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return False
+
+    def get_docker_container_count(self) -> int:
+        if not self._is_docker_running():
+            return 0
+        try:
+            output = subprocess.check_output(['docker', 'ps', '--format', '{{.ID}}'], text=True)
+            return len(output.strip().split('\n')) if output.strip() else 0
+        except subprocess.CalledProcessError:
+            return 0
+
     def __get_path_usage_info(self, path: str) -> DiskUsageInfo:
         try:
             # Get disk usage stats for the given path
@@ -166,7 +182,7 @@ class RpiService:
             logging.debug(f"Error retrieving disk space usage: {e}")
             return 0.0
 
-    def _get_clusterhat_status(self) -> ClusterHatStatus:
+    def get_clusterhat_status(self) -> ClusterHatStatus:
         try:
             # Execute the command and decode the output to string
             output = subprocess.check_output(['clusterhat', 'status'], text=True)
@@ -197,7 +213,7 @@ class RpiService:
             return "unknown"
 
     def is_cluster_hat_on(self) -> bool:
-        status = self._get_clusterhat_status()
+        status = self.get_clusterhat_status()
         return status.is_on
 
     def get_disk_usages(self, disks: list[str] = ['/', '/mnt/data', '/mnt/ssd_data']) -> list[DiskUsageInfo]:
@@ -211,7 +227,7 @@ class RpiService:
         return disk_usage_info
 
     def render_cluster_hat_status(self) -> str:
-        status = self._get_clusterhat_status()
+        status = self.get_clusterhat_status()
 
         return f"C: {'Y' if status.is_on else 'N'} - N: {status.active_node_count}/5 - F: {'Y' if self.is_fan_on() else 'N'} - {self._get_my_ip_address()}"
 
@@ -222,8 +238,9 @@ class RpiService:
         is_fan_on = self.is_fan_on()
         hdd_usage = self._get_local_disk_usage()
         hostname = self.get_hostname().upper()
+        running_containers = self.get_docker_container_count()
 
-        return  f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C {'[F]' if is_fan_on else ''}"
+        return  f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C{' [F]' if is_fan_on else ''}  P: {running_containers:2.0f}"
 
     def get_lines_from_file(self, filename: str, nr_lines: int = 10) -> list[str]:
         try:
@@ -237,7 +254,7 @@ class RpiService:
             return ""
 
     def is_healthy(self) -> bool:
-        status = self._get_clusterhat_status()
+        status = self.get_clusterhat_status()
         is_healthy = not status.is_on or status.active_node_count == 5
 
         if not is_healthy:
