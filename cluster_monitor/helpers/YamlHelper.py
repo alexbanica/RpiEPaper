@@ -27,6 +27,12 @@ class YamlHelper:
                 continue
 
             self.__parse_remote_service_config(config, context)
+            self.__parse_renderer_config(config, context)
+
+    def __parse_renderer_config(self, config: dict, context: Context) -> None:
+        renderer_config = config.get('cluster_monitor', {}).get('renderer', {})
+        context.renderer_init_interval_sec = renderer_config.get('init_interval_sec', 5 * 60)
+        context.display_update_interval_sec = renderer_config.get('display_update_interval_sec', 5)
 
     def __parse_remote_service_config(self, config: dict, context: Context) -> None:
         remote_config = config.get('cluster_monitor', {}).get('remote_service', {}).get('ssh', {})

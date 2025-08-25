@@ -25,14 +25,13 @@ def cleanup_epaper():
     epd2in7_V2.epdconfig.module_exit(cleanup=True)
 
 class EPaperRenderer(AbstractRenderer):
-    DEFAULT_INIT_INTERVAL = 60*10
-    def __init__(self, context: Context, init_interval=DEFAULT_INIT_INTERVAL):
+    def __init__(self, context: Context):
         self.epd = epd2in7_V2.EPD()
         self.fontType = ImageFont.truetype(os.path.join(RESOURCES_DIR, 'Font.ttc'), DEFAULT_FONT_SIZE)
         self.Himage = Image.new('1', (self.epd.height, self.epd.width), COLOR_WHITE)
         self.draw = ImageDraw.Draw(self.Himage)
         self.controller = EPaperController(context)
-        self.init_interval = init_interval
+        self.init_interval = context.renderer_init_interval_sec
         self.hard_refresh()
 
         self.init_thread = threading.Thread(target=self._run_periodic_init_task, daemon=True)
@@ -43,7 +42,6 @@ class EPaperRenderer(AbstractRenderer):
         self.epd.init_Fast()
         self.epd.Clear()
         self.epd.display_Base_color(COLOR_WHITE)
-        self.refresh()
 
     def _run_periodic_init_task(self):
         while self.init_interval > 0:
@@ -94,7 +92,7 @@ class EPaperRenderer(AbstractRenderer):
         self.controller.__close__()
         logging.info("Closing EpaperRenderer")
         self.init_interval = 0
-        self.epd.init_Fast()
+        self.epd.init()
         self.epd.Clear()
         self.epd.sleep()
         logging.info("EpaperRenderer closed")

@@ -139,22 +139,6 @@ class RpiService:
             logging.debug(f"Error reading CPU usage: {e}")
             return 0.0  # Return 0% on error
 
-    def _is_docker_running(self) -> bool:
-        try:
-            subprocess.check_output(['docker', 'info'], stderr=subprocess.DEVNULL)
-            return True
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            return False
-
-    def get_docker_container_count(self) -> int:
-        if not self._is_docker_running():
-            return 0
-        try:
-            output = subprocess.check_output(['docker', 'ps', '--format', '{{.ID}}'], text=True)
-            return len(output.strip().split('\n')) if output.strip() else 0
-        except subprocess.CalledProcessError:
-            return 0
-
     def __get_path_usage_info(self, path: str) -> DiskUsageInfo:
         try:
             # Get disk usage stats for the given path
@@ -238,9 +222,8 @@ class RpiService:
         is_fan_on = self.is_fan_on()
         hdd_usage = self._get_local_disk_usage()
         hostname = self.get_hostname().upper()
-        running_containers = self.get_docker_container_count()
 
-        return  f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C{' [F]' if is_fan_on else ''}  P: {running_containers:2.0f}"
+        return  f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C{' [F]' if is_fan_on else ''}"
 
     def get_lines_from_file(self, filename: str, nr_lines: int = 10) -> list[str]:
         try:

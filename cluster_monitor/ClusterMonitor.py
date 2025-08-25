@@ -12,8 +12,6 @@ from cluster_monitor.renderers import RendererManager, AbstractRenderer, RENDER_
 from cluster_monitor.dto import Context
 from typing import Optional
 
-DEFAULT_DISPLAY_UPDATE_INTERVAL_S = 5
-
 class ClusterMonitor:
     singleton = None
 
@@ -185,7 +183,7 @@ class ClusterMonitor:
 
                 renderer.draw_apply()
                 self._is_healthy = True
-                time.sleep(DEFAULT_DISPLAY_UPDATE_INTERVAL_S)
+                time.sleep(self.context.display_update_interval_sec)
             except KeyboardInterrupt as e:
                 logging.warning("Monitor interrupted by user")
                 self.__close__()
@@ -193,7 +191,7 @@ class ClusterMonitor:
             except Exception as e:
                 logging.error(f"Error updating display: {e}")
                 self._is_healthy = False
-                time.sleep(DEFAULT_DISPLAY_UPDATE_INTERVAL_S)
+                time.sleep(self.context.display_update_interval_sec)
 
     def __close__(self) -> None:
         logging.info("Closing Cluster Monitor")

@@ -1,4 +1,7 @@
 cluster_monitor:
+  renderer:
+    init_interval_sec: 300
+    display_update_interval_sec: 5
   remote_service:
     ssh:
       user: ''
