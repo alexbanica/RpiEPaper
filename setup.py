@@ -11,7 +11,7 @@ else:
     dependencies += ['Jetson.GPIO']
 
 setup(
-    name='cluster-monitor',
+    name='cluster_monitor',
     version='1.0.0',
     description='Server Status Display for Raspberry Pi with e-Paper Display',
     long_description='A monitoring system that displays server statistics, Docker swarm information, and system metrics on an e-Paper display',
