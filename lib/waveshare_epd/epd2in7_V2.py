@@ -335,6 +335,18 @@ class EPD:
             for i in range(Width):
                 self.send_data(0XFF)
         self.TurnOnDisplay()
+
+    def Clear_Fast(self):
+        if(self.width % 8 == 0):
+            Width = self.width // 8
+        else:
+            Width = self.width // 8 +1
+        Height = self.height
+        self.send_command(0x24)
+        for j in range(Height):
+            for i in range(Width):
+                self.send_data(0XFF)
+        self.TurnOnDisplay_Fast()
     
     def display(self, image):
         if(self.width % 8 == 0):
