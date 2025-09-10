@@ -33,8 +33,10 @@ class RemoteService:
         ssh_client.connect(
             hostname,
             username=self.username,
-            key_filename=self.ssh_key_path
+            key_filename=self.ssh_key_path,
+            timeout=10
         )
+        ssh_client.get_transport().set_keepalive(30)
         logging.info(f"Connected to {hostname}")
 
         return ssh_client
@@ -49,7 +51,8 @@ class RemoteService:
 
         logging.debug(f"Disconnecting from %s...", hostname)
         client = self.clients.pop(hostname)
-        client.close()
+        if client:
+            client.close()
         self.async_commands.remove_result(hostname)
         logging.info(f"Disconnected from %s",  hostname)
 
@@ -70,7 +73,8 @@ class RemoteService:
         self.async_commands.__close__()
         logging.info("Closing SSH connections...")
         for client in self.clients.values():
-            client.close()
+            if client:
+                client.close()
 
     def __create_command_background_thread(self, command_uuid: str) -> threading.Thread:
         return threading.Thread(target=self._command_update_task, kwargs={'command_uuid': command_uuid}, daemon=True)

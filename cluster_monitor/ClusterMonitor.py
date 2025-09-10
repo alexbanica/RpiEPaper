@@ -189,7 +189,7 @@ class ClusterMonitor:
                 self.__close__()
                 raise e
             except Exception as e:
-                logging.error(f"Error updating display: {e}")
+                logging.error(f"Error updating display: {e}", e)
                 self._is_healthy = False
                 time.sleep(self.context.display_update_interval_sec)
 

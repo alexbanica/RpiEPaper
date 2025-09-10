@@ -8,6 +8,8 @@ import os
 import subprocess
 import re
 
+from numpy.f2py.auxfuncs import throw_error
+
 from cluster_monitor.dto import ClusterHatStatus, DiskUsageInfo
 
 RPI_TIME_FORMAT = "%H:%M"
@@ -168,26 +170,42 @@ class RpiService:
 
     def get_clusterhat_status(self) -> ClusterHatStatus:
         try:
-            # Execute the command and decode the output to string
-            output = subprocess.check_output(['clusterhat', 'status'], text=True)
-        except subprocess.CalledProcessError as e:
-            raise RuntimeError(f'Failed to run clusterhat status: {e}')
+            with subprocess.Popen(
+                    ['clusterhat', 'status'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+            ) as process:
+                output, error = process.communicate()
 
-        # Prepare storage for our keys of interest
-        hat_alert = 0
-        px_count = 1
+                # Check for a non-zero return code
+                if process.returncode != 0:
+                    logging.error(f"ClusterHat status command failed: {error}")
+                    raise Exception("ClusterHat status command failed")
 
-        # Parse the output line by line
-        for line in output.splitlines():
-            # Remove potential whitespaces
-            line = line.strip()
-            if line.startswith('hat_alert:'):
-                hat_alert = int(line.split(':')[1])
-            match = re.match(r'p\d+:(\d+)', line)
-            if match and match.group(1) == '1':
-                px_count += 1
+                # Parse the output to retrieve the desired information
+                hat_alert = 0
+                px_count = 1
 
-        return ClusterHatStatus(px_count > 1, hat_alert == 1, px_count)
+                for line in output.splitlines():
+                    line = line.strip()
+                    if line.startswith('hat_alert:'):
+                        hat_alert = int(line.split(':')[1])
+                    match = re.match(r'p\d+:(\d+)', line)
+                    if match and match.group(1) == '1':
+                        px_count += 1
+
+                # Return the parsed ClusterHatStatus object
+                return ClusterHatStatus(is_on=px_count > 1, has_alert=hat_alert == 1, active_node_count=px_count)
+
+        except FileNotFoundError:
+            logging.error("ClusterHat command not found. Is it installed and in your PATH?")
+        except Exception as e:
+            logging.error(f"Unexpected error while retrieving ClusterHat status: {e}")
+
+        # Default fallback if the command fails
+        return ClusterHatStatus(active_node_count=0, is_on=False, has_alert=False)
+
 
     def get_cpu_architecture(self) -> str:
         try:
