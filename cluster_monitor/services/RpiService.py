@@ -8,8 +8,6 @@ import os
 import subprocess
 import re
 
-from numpy.f2py.auxfuncs import throw_error
-
 from cluster_monitor.dto import ClusterHatStatus, DiskUsageInfo
 
 RPI_TIME_FORMAT = "%H:%M"
