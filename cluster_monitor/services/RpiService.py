@@ -216,7 +216,7 @@ class RpiService:
         status = self.get_clusterhat_status()
         return status.is_on
 
-    def get_disk_usages(self, disks: list[str] = ['/', '/mnt/data', '/mnt/ssd_data']) -> list[DiskUsageInfo]:
+    def get_disk_usages(self, disks: list[str] = ['/', '/mnt/data', '/mnt/ssd_data', '/mnt/hdd_data']) -> list[DiskUsageInfo]:
         disk_usage_info = []
         for disk in disks:
             try:
