@@ -40,7 +40,7 @@ class EPaperRenderer(AbstractRenderer):
 
     def hard_refresh(self):
         logging.info("Hard refreshing the rendered content")
-        self.epd.Clear_Fast()
+        self.epd.Clear()
         self.epd.display_Base_color(COLOR_WHITE)
         self.refresh()
 

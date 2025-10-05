@@ -59,7 +59,7 @@ class DockerStatus:
             'updated': self.updated,
             'mode': self.mode,
             'image': self.image_tag_short,
-            'ports': self.ports_short,
-            'deployed_to': self.deployed_to,
+            'ports': ['...'] if len(self.ports_short) > 2 else self.ports_short,
+            'deployed_to': ['all'] if len(self.deployed_to) == self.replicas else self.deployed_to,
             'replicas': f"{self.running_replicas}/{self.replicas}"
         }

@@ -91,7 +91,7 @@ class DockerService:
                 mode=service.attrs.get('Spec', {}).get('Mode', {}),
                 image=service.attrs.get('Spec', {}).get('TaskTemplate', {}).get('ContainerSpec', {}).get('Image', ''),
                 ports=ports,
-                replicas=service.attrs.get('Spec', {}).get('Mode', {}).get('Replicated', {}).get('Replicas', 0),
+                replicas=service.attrs.get('Spec', {}).get('Mode', {}).get('Replicated', {}).get('Replicas', 5),
                 running_replicas=sum(1 for task in tasks if task['Status']['State'] == 'running'),
                 deployed_to=node_hostnames
             )
