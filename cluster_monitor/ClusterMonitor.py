@@ -149,6 +149,7 @@ class ClusterMonitor:
                 if current_drawing_page != renderer.get_controller().get_current_page():
                     current_drawing_page = renderer.get_controller().get_current_page()
                     renderer.hard_refresh()
+                    time.sleep(0.5)
                     continue
 
                 if not self.is_healthy():

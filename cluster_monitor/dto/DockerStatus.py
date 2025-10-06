@@ -1,6 +1,6 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
-
+import logging
 from _datetime import datetime
 from dataclasses import dataclass
 from typing import Any
@@ -22,7 +22,7 @@ class DockerStatus:
 
     @property
     def name_short(self) -> str:
-        return self.name.replace(f"{self.namespace}_", "") if self.namespace else self.name
+        return (self.name.replace(f"{self.namespace}_", "") if self.namespace else self.name)[:9]
 
     @property
     def image_short(self) -> str:
@@ -51,6 +51,9 @@ class DockerStatus:
     def to_list(self) -> list:
         return [self.name, self.id, self.created, self.updated, self.mode, self.image, self.ports, self.replicas]
 
+    def _is_global_mode(self) -> bool:
+        return 'Global' in self.mode.keys()
+
     def to_dict(self) -> dict[str, Any]:
         return {
             'name': self.name_short,
@@ -59,7 +62,7 @@ class DockerStatus:
             'updated': self.updated,
             'mode': self.mode,
             'image': self.image_tag_short,
-            'ports': ['...'] if len(self.ports_short) > 2 else self.ports_short,
-            'deployed_to': ['all'] if len(self.deployed_to) == 5 else self.deployed_to,
+            'ports': ",".join(self.ports_short[:2]) + '...' if len(self.ports_short) > 2 else ",".join(self.ports_short),
+            'deployed_to': 'global' if self._is_global_mode() else ",".join(self.deployed_to),
             'replicas': f"{self.running_replicas}/{self.replicas}"
         }

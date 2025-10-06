@@ -32,14 +32,15 @@ class EPaperRenderer(AbstractRenderer):
         self.draw = ImageDraw.Draw(self.Himage)
         self.controller = EPaperController(context)
         self.init_interval = context.renderer_init_interval_sec
-        self.epd.init()
-        self.hard_refresh()
-
+        self.hard_refresh(True)
         self.init_thread = threading.Thread(target=self._run_periodic_init_task, daemon=True)
         self.init_thread.start()
 
-    def hard_refresh(self):
+    def hard_refresh(self, skip_sleep: bool = False):
         logging.info("Hard refreshing the rendered content")
+        if not skip_sleep:
+            self.epd.sleep()
+        self.epd.init()
         self.epd.Clear()
         self.epd.display_Base_color(COLOR_WHITE)
         self.refresh()
