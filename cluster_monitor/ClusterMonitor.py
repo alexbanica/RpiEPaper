@@ -159,6 +159,7 @@ class ClusterMonitor:
 
                 renderer.refresh()
                 self.remote_connection_service.update_hostnames(self.docker_service.extract_node_hostnames())
+                self.rpi_service.restart_nodes(self.docker_service.get_long_down_node_hostnames())
 
                 renderer.draw_text(self.rpi_service.get_current_time() + renderer.draw_pagination(), NULL_COORDS, RENDER_ALIGN_RIGHT)
                 coords = renderer.draw_text(self.rpi_service.render_cluster_hat_status())

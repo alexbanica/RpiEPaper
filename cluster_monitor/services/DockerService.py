@@ -12,6 +12,8 @@ from typing import Any
 from cluster_monitor.dto import DockerStatus
 
 DOCKER_UPDATE_INTERVAL_S = 2
+NODE_DOWN_THRESHOLD_S = 300  # 5 minutes
+
 
 class DockerService:
     def __init__(self):
@@ -19,6 +21,7 @@ class DockerService:
         self.low_level_client = docker.APIClient()
         self.services = []
         self.nodes = []
+        self.node_down_times = {}
         logging.debug("Connecting to Docker daemon and performing initial update. This may take a while, please wait...")
         self._update()
 
@@ -114,6 +117,7 @@ class DockerService:
                 logging.debug("Updating Docker stats")
                 self.nodes = self.client.nodes.list()
                 self.services = self.client.services.list()
+                self._update_node_down_times()
                 self._is_healthy = True
             except KeyboardInterrupt:
                 logging.warning("Update interrupted by user")
@@ -161,3 +165,23 @@ class DockerService:
         if not self._is_healthy:
             logging.error("Docker daemon is not healthy. Please check the logs for more details.")
         return self._is_healthy
+
+    def _update_node_down_times(self) -> None:
+        current_time = time.time()
+        down_nodes = self._get_nodes_by_state('down')
+        down_hostnames = {node.attrs.get('Description', {}).get('Hostname') for node in down_nodes}
+
+        for node in down_nodes:
+            hostname = node.attrs.get('Description', {}).get('Hostname')
+            if hostname not in self.node_down_times:
+                self.node_down_times[hostname] = current_time
+
+        self.node_down_times = {hostname: timestamp
+                                for hostname, timestamp in self.node_down_times.items()
+                                if hostname in down_hostnames}
+        logging.debug("Node down times: %s", self.node_down_times)
+
+    def get_long_down_node_hostnames(self) -> list[str]:
+        current_time = time.time()
+        return [hostname for hostname, down_time in self.node_down_times.items()
+                if (current_time - down_time) > NODE_DOWN_THRESHOLD_S]

@@ -60,14 +60,20 @@ class RemoteService:
     def _connect_all(self, hostnames: list[str]) -> None:
         if len(self.clients) > len(hostnames):
             logging.info("Removing disconnected clients... %s, %s", self.clients.keys(), hostnames)
-            active_client_hostnames = list(self.clients.keys())
-            for active_client_hostname in active_client_hostnames:
+            running_clients_hostnames = list(self.clients.keys())
+            for active_client_hostname in running_clients_hostnames:
                 if active_client_hostname not in hostnames:
                     self.__remove_client(active_client_hostname)
 
         for active_client_hostname in hostnames:
-            if active_client_hostname not in self.clients or self._is_ssh_client_closed(self.clients[active_client_hostname]):
-                self.clients.setdefault(active_client_hostname, self._connect(active_client_hostname))
+            if active_client_hostname in self.clients and self._is_ssh_client_closed(self.clients[active_client_hostname]):
+                self.__remove_client(active_client_hostname)
+
+            if active_client_hostname not in self.clients:
+                try:
+                    self.clients[active_client_hostname] = self._connect(active_client_hostname)
+                except Exception as e:
+                    logging.error(f"Error connecting to host {active_client_hostname}: {e}")
 
     def __close__(self) -> None:
         self.async_commands.__close__()
@@ -108,6 +114,7 @@ class RemoteService:
                 results[hostname] = self._execute(hostname, command)
             except Exception as e:
                 logging.error(f"Error executing command on host %s: %s", hostname, e)
+                self.__remove_client(hostname)
         return results
 
     def execute_on_all_async(self, command_uuid: str = None) -> None:

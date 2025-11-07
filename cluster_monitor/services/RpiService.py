@@ -7,6 +7,8 @@ import time
 import os
 import subprocess
 import re
+from time import sleep
+import threading
 
 from cluster_monitor.dto import ClusterHatStatus, DiskUsageInfo
 
@@ -260,6 +262,20 @@ class RpiService:
             logging.error(f"Clusterhat is not healthy. Status: {status}")
 
         return is_healthy
+
+    def restart_nodes(self, hostnames: list[str]) -> None:
+        for hostname in hostnames:
+            thread = threading.Thread(target=self._restart_node_by_hostname, daemon=True, kwargs={'hostname': hostname})
+            thread.start()
+
+    def _restart_node_by_hostname(self, hostname: str) -> None:
+        try:
+            logging.info(f"Attempt to restart node {hostname}")
+            subprocess.check_call(['clusterhat', 'stop', hostname])
+            sleep(5)
+            subprocess.check_call(['clusterhat', 'start', hostname])
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Failed to restart node {hostname}: {e}")
 
     def set_cluster_hat_alert(self, enable: bool) -> None:
         if self.cluster_hat_alert_enabled == enable:

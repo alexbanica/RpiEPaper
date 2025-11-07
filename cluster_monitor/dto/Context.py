@@ -13,7 +13,7 @@ class Context:
     remote_ssh_rpi_hdd_status_command: str = ''
     is_monitor_client: bool = False
     show_hdd_stats: bool = False
-    renderer_init_interval_sec: int = 5 * 60
+    renderer_init_interval_sec: int = 2 * 60
     display_update_interval_sec: int = 5
 
     def __str__(self):
