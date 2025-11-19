@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # -*- coding:utf-8 -*-
-from asyncio import tasks
 
 import docker
 import logging
@@ -12,7 +11,8 @@ from typing import Any
 from cluster_monitor.dto import DockerStatus
 
 DOCKER_UPDATE_INTERVAL_S = 2
-NODE_DOWN_THRESHOLD_S = 300  # 5 minutes
+DOCKER_NODE_STATE_READY = "ready"
+DOCKER_NODE_STATE_DOWN = "down"
 
 
 class DockerService:
@@ -43,19 +43,19 @@ class DockerService:
     def count_all_nodes(self) -> int:
         return len(self.nodes)
 
-    def count_nodes_by_state(self, state: str = "ready") -> int:
-        return len(self._get_nodes_by_state(state))
+    def count_nodes_by_state(self, state: str = DOCKER_NODE_STATE_READY) -> int:
+        return len(self.get_nodes_by_state(state))
 
     def count_all_services(self) -> int:
         return len(self.services)
 
-    def _get_nodes_by_state(self, state) -> list:
+    def get_nodes_by_state(self, state) -> list:
         if len(self.nodes) <= 0:
             return []
         return [node for node in self.nodes if node.attrs.get('Status', {}).get('State') == state]
 
-    def extract_node_hostnames(self, node_state: str = "ready") -> list[Any]:
-        return natsorted([node.attrs.get('Description', {}).get('Hostname') for node in self._get_nodes_by_state(node_state)])
+    def extract_node_hostnames(self, node_state: str = DOCKER_NODE_STATE_READY) -> list[Any]:
+        return natsorted([node.attrs.get('Description', {}).get('Hostname') for node in self.get_nodes_by_state(node_state)])
 
 
     def extract_service_names(self) -> list[str]:
@@ -117,7 +117,6 @@ class DockerService:
                 logging.debug("Updating Docker stats")
                 self.nodes = self.client.nodes.list()
                 self.services = self.client.services.list()
-                self._update_node_down_times()
                 self._is_healthy = True
             except KeyboardInterrupt:
                 logging.warning("Update interrupted by user")
@@ -166,22 +165,3 @@ class DockerService:
             logging.error("Docker daemon is not healthy. Please check the logs for more details.")
         return self._is_healthy
 
-    def _update_node_down_times(self) -> None:
-        current_time = time.time()
-        down_nodes = self._get_nodes_by_state('down')
-        down_hostnames = {node.attrs.get('Description', {}).get('Hostname') for node in down_nodes}
-
-        for node in down_nodes:
-            hostname = node.attrs.get('Description', {}).get('Hostname')
-            if hostname not in self.node_down_times:
-                self.node_down_times[hostname] = current_time
-
-        self.node_down_times = {hostname: timestamp
-                                for hostname, timestamp in self.node_down_times.items()
-                                if hostname in down_hostnames}
-        logging.debug("Node down times: %s", self.node_down_times)
-
-    def get_long_down_node_hostnames(self) -> list[str]:
-        current_time = time.time()
-        return [hostname for hostname, down_time in self.node_down_times.items()
-                if (current_time - down_time) > NODE_DOWN_THRESHOLD_S]

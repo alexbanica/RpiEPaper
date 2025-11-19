@@ -8,6 +8,7 @@ import signal
 from cluster_monitor.services.RpiService import RpiService
 from cluster_monitor.services.DockerService import DockerService
 from cluster_monitor.services.RemoteService import RemoteService
+from cluster_monitor.services.SupervisorService import SupervisorService
 from cluster_monitor.renderers import RendererManager, AbstractRenderer, RENDER_ALIGN_RIGHT, RENDER_ALIGN_CENTER, NULL_COORDS, RENDER_ALIGN_LEFT
 from cluster_monitor.dto import Context
 from typing import Optional
@@ -21,6 +22,7 @@ class ClusterMonitor:
         self.context = context
         self.rpi_service = RpiService()
         self.docker_service = DockerService()
+        self.supervisor_service = SupervisorService(self.context, self.docker_service, self.rpi_service)
         self.renderer_manager = RendererManager(self.context)
         self.remote_connection_service = RemoteService([], context.remote_ssh_username, context.remote_ssh_key_path)
         ClusterMonitor.singleton = self
@@ -132,6 +134,7 @@ class ClusterMonitor:
         return self._is_healthy and \
             self.docker_service.is_healthy() and \
             self.remote_connection_service.is_healthy() and \
+            self.supervisor_service.is_healthy() and \
             self.rpi_service.is_healthy() and are_all_nodes_healthy
 
     def start(self) -> None:
@@ -159,7 +162,6 @@ class ClusterMonitor:
 
                 renderer.refresh()
                 self.remote_connection_service.update_hostnames(self.docker_service.extract_node_hostnames())
-                self.rpi_service.restart_nodes(self.docker_service.get_long_down_node_hostnames())
 
                 renderer.draw_text(self.rpi_service.get_current_time() + renderer.draw_pagination(), NULL_COORDS, RENDER_ALIGN_RIGHT)
                 coords = renderer.draw_text(self.rpi_service.render_cluster_hat_status())
@@ -200,6 +202,7 @@ class ClusterMonitor:
         self.is_running = False
         self.rpi_service.set_cluster_hat_alert(False)
         self.renderer_manager.__close__()
+        self.supervisor_service.__close__()
         if self.rpi_service.is_cluster_hat_on():
             self.docker_service.__close__()
             self.remote_connection_service.__close__()

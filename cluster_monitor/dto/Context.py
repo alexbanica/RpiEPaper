@@ -15,6 +15,7 @@ class Context:
     show_hdd_stats: bool = False
     renderer_init_interval_sec: int = 2 * 60
     display_update_interval_sec: int = 5
+    docker_node_down_threshold_sec: int = 300
 
     def __str__(self):
         return (f"Context(default_page={self.default_page}, "
@@ -26,4 +27,5 @@ class Context:
                 f"is_monitor_client={self.is_monitor_client}, "
                 f"show_hdd_stats={self.show_hdd_stats}, "
                 f"renderer_init_interval_sec={self.renderer_init_interval_sec}, "
-                f"display_update_interval_sec={self.display_update_interval_sec})")
+                f"display_update_interval_sec={self.display_update_interval_sec}, "
+                f"docker_node_down_threshold_sec={self.docker_node_down_threshold_sec})")

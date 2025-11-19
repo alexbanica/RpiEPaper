@@ -271,11 +271,33 @@ class RpiService:
     def _restart_node_by_hostname(self, hostname: str) -> None:
         try:
             logging.info(f"Attempt to restart node {hostname}")
-            subprocess.check_call(['clusterhat', 'stop', hostname])
-            sleep(5)
-            subprocess.check_call(['clusterhat', 'start', hostname])
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to restart node {hostname}: {e}")
+            with subprocess.Popen(
+                    ['clusterhat', 'off', hostname],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+            ) as process:
+                output, error = process.communicate()
+                # Check for a non-zero return code
+                if process.returncode != 0:
+                    raise Exception(f"ClusterHat off command failed: {error}")
+                sleep(5)
+
+                with subprocess.Popen(
+                        ['clusterhat', 'on', hostname],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True
+                ) as process:
+                    output, error = process.communicate()
+
+                # Check for a non-zero return code
+                if process.returncode != 0:
+                    raise Exception(f"ClusterHat on command failed: {error}")
+        except Exception as e:
+            logging.error(f"Error restarting node {hostname}: {e}")
+
+
 
     def set_cluster_hat_alert(self, enable: bool) -> None:
         if self.cluster_hat_alert_enabled == enable:
