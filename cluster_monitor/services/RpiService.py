@@ -281,7 +281,7 @@ class RpiService:
                 # Check for a non-zero return code
                 if process.returncode != 0:
                     raise Exception(f"ClusterHat off command failed: {error}")
-                sleep(5)
+                sleep(2)
 
                 with subprocess.Popen(
                         ['clusterhat', 'on', hostname],

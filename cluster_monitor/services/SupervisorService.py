@@ -60,7 +60,9 @@ class SupervisorService:
         current_time = time.time()
         hostnames = [hostname for hostname, down_time in self.node_down_times.items()
                      if (current_time - down_time) > self.context.docker_node_down_threshold_sec]
-        self.node_down_times.clear()
+
+        for hostname in hostnames:
+            self.node_down_times.pop(hostname, None)
 
         return hostnames
 

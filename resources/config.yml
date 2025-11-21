@@ -1,6 +1,6 @@
 cluster_monitor:
   supervisor:
-    docker_node_down_threshold_sec: 300
+    docker_node_down_threshold_sec: 30
   renderer:
     init_interval_sec: 300
     display_update_interval_sec: 5

@@ -113,7 +113,6 @@ class ClusterMonitor:
         )
 
         for line in log_lines:
-            #logging.warning(line)
             prev_coords = renderer.draw_text(line, prev_coords, RENDER_ALIGN_LEFT)
 
         return prev_coords

@@ -37,7 +37,7 @@ class YamlHelper:
 
     def __parse_supervisor_config(self, config: dict, context: Context) -> None:
         supervisor_config = config.get('cluster_monitor', {}).get('supervisor', {})
-        context.docker_node_down_threshold_sec = supervisor_config.get('docker_node_down_threshold_sec', 5*60)
+        context.docker_node_down_threshold_sec = supervisor_config.get('docker_node_down_threshold_sec', 60)
 
     def __parse_remote_service_config(self, config: dict, context: Context) -> None:
         remote_config = config.get('cluster_monitor', {}).get('remote_service', {}).get('ssh', {})

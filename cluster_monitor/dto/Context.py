@@ -15,7 +15,7 @@ class Context:
     show_hdd_stats: bool = False
     renderer_init_interval_sec: int = 2 * 60
     display_update_interval_sec: int = 5
-    docker_node_down_threshold_sec: int = 300
+    docker_node_down_threshold_sec: int = 60
 
     def __str__(self):
         return (f"Context(default_page={self.default_page}, "
