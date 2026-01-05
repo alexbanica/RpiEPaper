@@ -87,7 +87,7 @@ class ClusterMonitor:
             return prev_coords
 
         coords = renderer.draw_text("Hard Disk Usages", prev_coords, RENDER_ALIGN_CENTER)
-        #coords = renderer.draw_new_subsection(stats_coords)
+        coords = renderer.draw_new_subsection(stats_coords)
         #coords = prev_coords
 
         disk_usages = self.rpi_service.get_disk_usages()
