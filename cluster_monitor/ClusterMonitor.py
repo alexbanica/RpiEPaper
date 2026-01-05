@@ -86,8 +86,9 @@ class ClusterMonitor:
         if self.docker_service is None:
             return prev_coords
 
-        stats_coords = renderer.draw_text("Hard Disk Usages", prev_coords, RENDER_ALIGN_CENTER)
-        coords = renderer.draw_new_subsection(stats_coords)
+        coords = renderer.draw_text("Hard Disk Usages", prev_coords, RENDER_ALIGN_CENTER)
+        #coords = renderer.draw_new_subsection(stats_coords)
+        #coords = prev_coords
 
         disk_usages = self.rpi_service.get_disk_usages()
         for disk_usage in disk_usages:
@@ -99,7 +100,7 @@ class ClusterMonitor:
                 continue
             coords = renderer.draw_text(f"{hostname} - {stats}", coords, RENDER_ALIGN_LEFT)
 
-        return stats_coords
+        return coords
 
     def draw_docker_stats_pag_4(self, renderer: AbstractRenderer, prev_coords:tuple[int, int, int, int] = NULL_COORDS) -> tuple[int, int,int,int]:
         if self.docker_service is None:
@@ -128,13 +129,11 @@ class ClusterMonitor:
 
     def is_healthy(self) -> bool:
 
-        are_all_nodes_healthy = self.rpi_service.get_clusterhat_status().active_node_count == len(self.remote_connection_service.clients)
-
         return self._is_healthy and \
             self.docker_service.is_healthy() and \
             self.remote_connection_service.is_healthy() and \
             self.supervisor_service.is_healthy() and \
-            self.rpi_service.is_healthy() and are_all_nodes_healthy
+            self.rpi_service.is_healthy()
 
     def start(self) -> None:
         logging.info("Cluster Monitor display. Press Ctrl+C to exit.")
