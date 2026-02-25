@@ -1,0 +1,1 @@
+from cluster_monitor.infrastructure.parsers.yaml_config_parser import YamlConfigParser

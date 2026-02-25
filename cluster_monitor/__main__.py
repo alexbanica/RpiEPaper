@@ -1,36 +1,26 @@
-#!/usr/bin/python
-# -*- coding:utf-8 -*-
-import argparse
-from cluster_monitor.dto import Context
-from cluster_monitor import ARG_RENDERER_CHOICES, ARG_PAGE_CHOICES, RENDERER_TYPE_EPAPER
+import sys
 
-def _console_parse_arguments(context: Context) -> None:
-    parser = argparse.ArgumentParser(description='Server Status Display')
-    parser.add_argument('-r', '--renderer', choices=ARG_RENDERER_CHOICES, default=RENDERER_TYPE_EPAPER,
-                        help='Choose renderer type: console or epaper')
-    parser.add_argument('-p', '--page', choices=ARG_PAGE_CHOICES, default=1,
-                        help='Choose default page nr: 1, 2, 3, 4')
-    parser.add_argument('-mc', '--monitor-client', action='store_true', default=False,
-                        help='Choose if you execute this as a monitor client')
-    parser.add_argument('-mc-hdd', '--monitor-client-hdd-stats', action='store_true', default=False,
-                        help='Choose if you execute this as a monitor client')
+from cluster_monitor.application.services.monitor_client_service import MonitorClientService
+from cluster_monitor.domain.entities import ContextEntity
+from cluster_monitor.infrastructure.services.rpi_service import RpiService
+from cluster_monitor.presentation.controllers.command_line_controller import CommandLineController
+from cluster_monitor.shared.constants import RENDERER_TYPE_EPAPER
 
-    args = parser.parse_args()
-    context.default_page = int(args.page)
-    context.render_type = args.renderer
-    context.is_monitor_client = args.monitor_client
-    if args.monitor_client_hdd_stats:
-        context.is_monitor_client = True
-        context.show_hdd_stats = True
 
-if __name__ == "__main__":
-    context = Context(1, RENDERER_TYPE_EPAPER)
-    _console_parse_arguments(context)
+def main() -> int:
+    context = ContextEntity(default_page=1, render_type=RENDERER_TYPE_EPAPER)
+    request = CommandLineController().parse()
+    context = CommandLineController().apply_to_context(request, context)
 
     if context.is_monitor_client:
-        from cluster_monitor.MonitorClient import MonitorClient
-        MonitorClient().render(context)
-    else:
-        from cluster_monitor.main import main
-        main(context)
-    exit(0)
+        MonitorClientService(RpiService()).render(context)
+        return 0
+
+    from cluster_monitor.application.services.runtime_service import RuntimeService
+
+    RuntimeService().run(context)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
