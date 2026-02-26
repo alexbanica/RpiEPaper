@@ -1,1 +1,0 @@
-from cluster_monitor.domain.entities.docker_status_entity import DockerStatusEntity as DockerStatus

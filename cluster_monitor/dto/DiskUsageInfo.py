@@ -1,1 +1,0 @@
-from cluster_monitor.domain.entities.disk_usage_info_entity import DiskUsageInfoEntity as DiskUsageInfo

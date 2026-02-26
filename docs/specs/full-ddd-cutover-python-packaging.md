@@ -1,5 +1,7 @@
 # Spec: Full DDD Cutover with Python Standard Packaging
 
+> Superseded in part by `docs/specs/prune-unused-python-modules.md` for legacy-wrapper removal.
+
 ## Purpose
 Rewrite the production `cluster_monitor` project to a DDD/onion architecture while preserving runtime behavior and CLI/config compatibility.
 

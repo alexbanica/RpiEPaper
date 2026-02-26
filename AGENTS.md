@@ -1,10 +1,10 @@
 # AGENTS
 
 ## Active Spec
-- `docs/specs/full-ddd-cutover-python-packaging.md`
+- `docs/specs/prune-unused-python-modules.md`
 
 ## Branch
-- `spec/full-ddd-cutover-python-packaging`
+- `spec/prune-unused-python-modules`
 
 ## Architecture Rules
 - DDD/onion split:
@@ -14,7 +14,7 @@
 - `cluster_monitor/presentation`
 - Interfaces are named with `Interface` suffix.
 - Service implementations match interface names without suffix.
-- Legacy module paths are compatibility wrappers.
+- Legacy wrapper module paths were removed; use canonical DDD module paths only.
 
 ## Packaging Rules
 - `pyproject.toml` is source of package metadata.

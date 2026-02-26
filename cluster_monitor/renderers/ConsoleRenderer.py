@@ -1,1 +1,0 @@
-from cluster_monitor.presentation.renderers.console_renderer import ConsoleRenderer

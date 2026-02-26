@@ -1,1 +1,0 @@
-from cluster_monitor.domain.entities.cluster_hat_status_entity import ClusterHatStatusEntity as ClusterHatStatus

@@ -14,11 +14,7 @@ The codebase uses a DDD/onion layout:
 - `cluster_monitor/application`: orchestration services
 - `cluster_monitor/infrastructure`: adapters and parsers
 - `cluster_monitor/presentation`: renderers and controllers
-
-Legacy import paths remain supported through compatibility wrappers:
-- `cluster_monitor/services/*`
-- `cluster_monitor/dto/*`
-- `cluster_monitor/renderers/*`
+- `cluster_monitor/shared`: constants and shared values
 
 ## Installation
 

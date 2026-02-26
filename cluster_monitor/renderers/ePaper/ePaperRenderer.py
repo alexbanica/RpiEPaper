@@ -1,2 +1,0 @@
-from cluster_monitor.presentation.renderers.epapers.epaper_renderer import EpaperRenderer as EPaperRenderer
-from cluster_monitor.presentation.renderers.epapers.epaper_renderer import cleanup_epaper
