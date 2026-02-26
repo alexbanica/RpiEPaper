@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cluster_monitor"
+version = "1.0.0"
+description = "Server Status Display for Raspberry Pi with e-Paper Display"
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+  { name = "Alex Banica", email = "ionut.alexandru.banica@gmail.com" }
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3.9",
+  "Operating System :: POSIX :: Linux",
+  "Topic :: System :: Monitoring",
+]
+dependencies = [
+  "Pillow",
+  "gpiozero",
+  "docker",
+  "natsort",
+  "paramiko",
+  "PyYAML",
+]
+
+[project.scripts]
+cluster-monitor = "cluster_monitor.__main__:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = [".", "lib"]
+include = ["cluster_monitor*", "waveshare_epd*"]
