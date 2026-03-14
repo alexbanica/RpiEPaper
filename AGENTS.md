@@ -1,10 +1,10 @@
 # AGENTS
 
 ## Active Spec
-- `docs/specs/prune-unused-python-modules.md`
+- `docs/specs/storage-temperature-disk-usages.md`
 
 ## Branch
-- `spec/prune-unused-python-modules`
+- `spec/storage-temperature-disk-usages`
 
 ## Architecture Rules
 - DDD/onion split:
