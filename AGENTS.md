@@ -8,13 +8,30 @@
 
 ## Architecture Rules
 - DDD/onion split:
-- `cluster_monitor/domain`
-- `cluster_monitor/application`
-- `cluster_monitor/infrastructure`
-- `cluster_monitor/presentation`
+- `cluster_monitor/domain`: entities and domain service interfaces for cluster, node, Docker, disk, and temperature status.
+- `cluster_monitor/application`: orchestration services that coordinate monitoring use cases.
+- `cluster_monitor/infrastructure`: adapters for YAML config parsing, SSH/command execution, Docker/system metrics parsing, and hardware/runtime integrations.
+- `cluster_monitor/presentation`: CLI controllers, request objects, and ePaper/rendering output.
+- `cluster_monitor/shared`: constants and shared values only.
+- Dependencies point inward: presentation and infrastructure may depend on application/domain contracts, but domain must not depend on infrastructure, presentation, SSH, Docker, ePaper, or filesystem details.
 - Interfaces are named with `Interface` suffix.
+- Abstract classes are prefixed with `Abstract`.
+- Implementations of abstract classes remove the `Abstract` prefix and keep the remaining name.
 - Service implementations match interface names without suffix.
 - Legacy wrapper module paths were removed; use canonical DDD module paths only.
+
+## Project-Specific Architecture
+- `cluster_monitor/domain/entities`: core status entities used by renderers and services.
+- `cluster_monitor/domain/services`: domain-facing service contracts.
+- `cluster_monitor/application/services`: monitor orchestration and aggregation use cases.
+- `cluster_monitor/infrastructure/parsers`: parsing adapters for command output and raw system data.
+- `cluster_monitor/infrastructure/services`: concrete adapters for remote and local status collection.
+- `cluster_monitor/presentation/controllers`: runtime CLI/controller coordination.
+- `cluster_monitor/presentation/controllers/requests`: request DTOs for invocation modes.
+- `cluster_monitor/presentation/renderers`: renderer abstractions and concrete output rendering.
+- `cluster_monitor/presentation/renderers/epapers`: Waveshare/ePaper-specific rendering adapters.
+- `resources/config.yml` is the default runtime configuration.
+- `tests/` contains deterministic unit coverage for monitor behavior and parsers.
 
 ## Packaging Rules
 - `pyproject.toml` is source of package metadata.
