@@ -36,3 +36,6 @@ include-package-data = true
 [tool.setuptools.packages.find]
 where = [".", "lib"]
 include = ["cluster_monitor*", "waveshare_epd*"]
+
+[tool.setuptools.package-data]
+"waveshare_epd" = ["*.so"]

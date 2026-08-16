@@ -3,3 +3,10 @@
 venv/
 __pycache__/
 /resources/config.local.yml
+dist/
+build/
+*.egg-info/
+publish-work/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
