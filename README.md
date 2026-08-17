@@ -54,9 +54,8 @@ pip install .
 
 - Pull-request checks for `main`: `.github/workflows/ci.yml`
   - `lint` (runs Ruff on `cluster_monitor`, `scripts`, and `tests`)
-  - `test (3.9)` (runs `python -m unittest discover -s tests` on Python 3.9)
   - `test (3.12)` (runs `python -m unittest discover -s tests` on Python 3.12)
-- Push checks for `main`: `lint`, `test (3.9)`, and `test (3.12)`.
+- Push checks for `main`: `lint` and `test (3.12)`.
 - Configure these checks manually as required checks in branch protection. The repository
   setup toolchain does not configure branch protection automatically.
 

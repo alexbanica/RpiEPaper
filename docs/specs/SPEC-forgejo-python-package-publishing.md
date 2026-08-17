@@ -16,10 +16,22 @@ static package version is not connected to Git release tags. A release workflow
 also needs to adapt the repository owner's existing Forgejo npm publishing
 contract to Forgejo's PyPI authentication and version rules.
 
+## Iteration: Remove Python 3.9 GitHub Actions (2026-08-17)
+
+- Remove Python 3.9 from pull-request, `main`, and release-tag GitHub Actions
+  test jobs.
+- Keep Python 3.12 as the single hosted unit-test version and expose only the
+  stable `test (3.12)` unit-test check.
+- Preserve the package metadata contract `requires-python = ">=3.9"` and the
+  Python 3.9 classifier. This iteration changes hosted CI coverage only; it does
+  not declare Python 3.9 package incompatibility or change application behavior.
+- Preserve all release, packaging, credential, artifact, and verification
+  behavior that is unrelated to the hosted test-version matrix.
+
 ## Scope
 
 - GitHub Actions CI for pull requests targeting `main` and pushes to `main`.
-- Deterministic Python lint and unit-test checks.
+- Deterministic Python lint and Python 3.12 unit-test checks.
 - GitHub Actions publishing for accepted numeric release tags.
 - Release-tag validation and temporary release-version selection.
 - Python source and wheel distribution building and validation.
@@ -103,6 +115,8 @@ contract to Forgejo's PyPI authentication and version rules.
   contract.
 - Unit tests use the repository's established command:
   `python -m unittest discover -s tests`.
+- GitHub Actions runs that unit-test command only on Python 3.12. Package
+  metadata continues to declare Python 3.9 and newer as supported.
 - Package metadata must treat the tracked `.so` files as runtime package data.
 - The source distribution and both platform wheels contain all four required
   shared libraries. Carrying both architectures in each wheel is intentional:
@@ -119,8 +133,9 @@ contract to Forgejo's PyPI authentication and version rules.
 2. Every push to `main`, including a pull-request merge commit, runs the same
    named checks.
 3. The lint check fails on any Ruff error in its defined first-party scope.
-4. The test check runs on Python 3.9 and Python 3.12 and fails if test discovery,
-   dependency installation, or any test fails.
+4. The single test check runs on Python 3.12 and fails if test discovery,
+   dependency installation, or any test fails. No Python 3.9 GitHub Actions test
+   job or `test (3.9)` status check is created.
 5. The workflow exposes stable check names that maintainers can mark as required
    in GitHub branch protection. The workflow does not claim that branch
    protection is configured merely because the checks exist.
@@ -189,6 +204,10 @@ contract to Forgejo's PyPI authentication and version rules.
 - Existing local unit-test invocation remains valid.
 - Pull requests and `main` pushes gain mandatory failing status checks when lint
   or tests do not pass.
+- Maintainers require `lint` and `test (3.12)` in branch protection; the former
+  `test (3.9)` check is removed.
+- Python 3.9 remains declared as package-compatible but no longer receives
+  hosted GitHub Actions regression coverage.
 - Tag pushes outside the accepted release formats do not publish.
 - Beta users install the canonical Python version (for example `1.2.3b4`) even
   though maintainers create the friendlier tag `1.2.3-beta4`.
@@ -203,9 +222,9 @@ contract to Forgejo's PyPI authentication and version rules.
 - Tests for stable and beta tag-to-PEP-440 version mapping.
 - Tests proving release-version changes affect only a temporary release
   checkout and keep build/runtime versions aligned.
-- Tests for workflow event filters, stable check names, Python versions,
-  job dependencies, concurrency, permissions, registry URLs, and credential
-  scoping.
+- Tests for workflow event filters, stable check names, the Python 3.12-only
+  test matrix, absence of Python 3.9 jobs, job dependencies, concurrency,
+  permissions, registry URLs, and credential scoping.
 - Tests with fake build, Twine, and pip subprocesses covering success, failure,
   artifact mismatch, upload conflict, cleanup, and anonymous verification.
 - Tests proving the source distribution and both platform wheels contain all
@@ -225,8 +244,8 @@ contract to Forgejo's PyPI authentication and version rules.
 
 ## Documentation Needs
 
-- Document the CI events and exact checks to require in GitHub branch
-  protection.
+- Document the CI events and the exact `lint` and `test (3.12)` checks to require
+  in GitHub branch protection, and remove references to `test (3.9)`.
 - Document stable and beta tag formats, rejected `v` tags, and beta PEP 440
   normalization.
 - Document the fixed public Forgejo PyPI upload and simple-index URLs.

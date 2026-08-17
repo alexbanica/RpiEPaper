@@ -38,22 +38,23 @@ class GitHubWorkflowTests(unittest.TestCase):
             r"(?ms)^\s*push:\s*\n(?:\s+.*\n)*?\s+branches:\s*\n\s+-\s+main\s*$",
         )
 
-    def test_ci_has_stable_check_names_for_supported_pythons(self):
+    def test_ci_has_stable_check_names_for_python_312_only(self):
         workflow = self._workflow("ci.yml")
 
         self.assertRegex(workflow, r"(?mi)^\s*(name:\s*)?(lint|ruff)\b")
         self.assertIn("name: test (${{ matrix.python-version }})", workflow)
-        self.assertRegex(workflow, r'(?ms)python-version:\s*\["3\.9",\s*"3\.12"\]')
-        self.assertRegex(workflow, r"['\"]?3\.9['\"]?")
+        self.assertRegex(workflow, r'(?ms)python-version:\s*\["3\.12"\]')
+        self.assertNotRegex(workflow, r"['\"]?3\.9['\"]?")
         self.assertRegex(workflow, r"['\"]?3\.12['\"]?")
         self.assertRegex(workflow, r"ruff\s+(check|format)\b")
         self.assertRegex(workflow, r"requirements/dev\.txt")
         self.assertRegex(workflow, r"python\s+-m\s+unittest\s+discover\s+-s\s+tests")
 
-    def test_publish_test_job_has_stable_matrix_check_names(self):
+    def test_publish_test_job_has_stable_python_312_check_name(self):
         workflow = self._workflow("publish.yml")
         self.assertIn("name: test (${{ matrix.python-version }})", workflow)
-        self.assertRegex(workflow, r'(?ms)python-version:\s*\["3\.9",\s*"3\.12"\]')
+        self.assertRegex(workflow, r'(?ms)python-version:\s*\["3\.12"\]')
+        self.assertNotRegex(workflow, r"['\"]?3\.9['\"]?")
 
     def test_publish_has_coarse_numeric_tag_filter_and_least_permissions(self):
         workflow = self._workflow("publish.yml")

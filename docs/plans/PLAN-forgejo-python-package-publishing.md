@@ -2,6 +2,27 @@
 
 Status: Approved
 
+## Super-Agent Completed Iteration: Remove Python 3.9 GitHub Actions (2026-08-17)
+
+- Requested outcome: remove Python 3.9 from GitHub Actions while preserving the
+  package metadata declaration that Python 3.9 and newer are supported.
+- Implemented changes: the CI and release test matrices contain only Python
+  3.12, workflow contract tests require that Python 3.9 is absent, and the
+  branch-protection documentation names only `lint` and `test (3.12)`.
+- Test-first applicability: this is a workflow-configuration and documentation
+  change; the deterministic workflow contract tests were updated before the
+  workflow configuration.
+- Validation run: focused workflow contract tests, YAML parsing for both
+  workflows, and Git diff checks.
+- Validation intentionally skipped by the `$super-agent` workflow: the full
+  unit suite, Ruff, package builds, hosted GitHub Actions, formal QA, and
+  independent code review.
+- Staging status: all accepted iteration paths are staged in the invoking
+  checkout. Commit and push were not requested and were not performed.
+- Residual risk: Python 3.9 remains package-compatible but no longer receives
+  hosted regression coverage; hosted check creation remains unverified until
+  the staged change is committed, pushed, and GitHub Actions runs it.
+
 ## Approved Spec
 
 `docs/specs/SPEC-forgejo-python-package-publishing.md`
@@ -101,7 +122,7 @@ minutes of active work.
 | T1 | Test | Tag grammar, PEP 440 mapping, source-tree immutability, isolated release-tree preparation, cleanup. Owns `tests/test_release_version.py`. | None | New tests fail only because release-version production behavior is absent; covers stable, beta, leading `v`, leading zeroes, `beta0`, malformed forms, exact metadata/runtime alignment, unchanged source checkout, and cleanup. Run the owned test module. | `test-writer`, maximum 5 minutes. |
 | T2 | Test | Native package data and artifact-set contract. Owns `tests/test_package_artifacts.py`. | None | Tests exactly one sdist plus `linux_armv7l` and `linux_aarch64` wheels, no universal wheel, all four `.so` files in every artifact, exact source-byte hashes, ELF32/ARM for `DEV_Config_32.so`, ELF64/AArch64 for the other three, non-pure wheel metadata, required Python packages, and mismatch rejection. Initially fails for missing behavior. Run the owned test module. | `test-writer`, maximum 5 minutes. |
 | T3 | Test | Publish orchestration, safe subprocess environment, Twine upload, public target-platform pip verification, failures, and cleanup. Owns `tests/test_publish_forgejo.py`. | None | Uses temporary fixtures and fake executables; proves the token and Twine username reach only upload, accepts only the validated three-artifact set, rejects conflicts, performs credential-free exact-version ARMv7 and AArch64 installs, validates installed `.so` bytes and runtime version without loading incompatible libraries, and cleans temporary data on success/failure. Initially fails for missing behavior. Run the owned test module. | `test-writer`, maximum 5 minutes. |
-| T4 | Test | CI and publishing workflow contract. Owns `tests/test_github_workflows.py`. | None | Tests PR-to-`main`, push-to-`main`, coarse numeric tag filter, stable check names, Python 3.9/3.12 tests, Ruff gate, publish dependencies, least permissions, concurrency, public endpoints, secret/variable names, upload-only credential scope, and the required three-artifact release command. Initially fails because workflows are absent. Run the owned test module. | `test-writer`, maximum 5 minutes. |
+| T4 | Test | CI and publishing workflow contract. Owns `tests/test_github_workflows.py`. | None | Tests PR-to-`main`, push-to-`main`, coarse numeric tag filter, stable check names, Python 3.12-only tests, absence of Python 3.9, Ruff gate, publish dependencies, least permissions, concurrency, public endpoints, secret/variable names, upload-only credential scope, and the required three-artifact release command. Initially fails because workflows are absent. Run the owned test module. | `test-writer`, maximum 5 minutes. |
 | D1 | Development | Exact release-tag validation, canonical version mapping, temporary release-tree construction, strict version replacement, source immutability, and cleanup. Owns `scripts/__init__.py` and `scripts/release_version.py`. | T1 | T1 passes without weakening assertions; source `pyproject.toml` and `cluster_monitor/__init__.py` remain unchanged; temporary release copies contain aligned canonical versions and are removed reliably. Run T1 plus compile checks for owned files. | `developer`, maximum 5 minutes. |
 | D2 | Development | Native package-data configuration and cross-platform artifact builder. Owns `scripts/package_artifacts.py`, `pyproject.toml`, and `setup.py`. | T2, D1 | T2 passes without weakening assertions; metadata includes all tracked `.so` files; build creates exactly one sdist and two non-pure platform wheels with all four byte-identical libraries; tags, WHEEL metadata, ELF headers, hashes, and required contents are checked; `pyproject.toml` remains metadata authority. Run T1/T2, compile checks, and a local three-artifact dry build. | `developer`, maximum 5 minutes. |
 | D3 | Development | Release orchestration and Forgejo PyPI publisher. Owns `scripts/publish_forgejo.py`. | T3, D1, D2 | T3 passes; sanitized lint/test/build/check operations receive no credentials; only the validated sdist/ARMv7/AArch64 set is uploaded; only Twine receives username/token; immutable conflicts fail; credential-free platform-targeted installs validate both wheels and installed `.so` bytes/runtime version; errors do not leak credentials; temporary state is cleaned. Run T1-T3 plus compile checks. | `developer`, maximum 5 minutes. |
