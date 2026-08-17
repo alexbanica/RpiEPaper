@@ -31,7 +31,18 @@
 - `cluster_monitor/presentation/renderers`: renderer abstractions and concrete output rendering.
 - `cluster_monitor/presentation/renderers/epapers`: Waveshare/ePaper-specific rendering adapters.
 - `resources/config.yml` is the default runtime configuration.
-- `tests/` contains deterministic unit coverage for monitor behavior and parsers.
+- `tests/` contains deterministic unit coverage only for domain logic.
+
+## Test Scope
+- Write and maintain unit tests only for logic under `cluster_monitor/domain`.
+- Do not create unit tests for code outside `cluster_monitor/domain`, including
+  GitHub Actions workflows, files under `scripts/`, package/build/release/publish
+  behavior, application orchestration, infrastructure adapters, presentation
+  code, configuration wiring, or runtime integrations.
+- Validate non-domain changes with appropriate static, syntax, structural, or
+  operator checks instead of adding unit tests.
+- Create test-first work units or assign test-focused subagents only when the
+  requested change affects testable domain logic.
 
 ## Packaging Rules
 - `pyproject.toml` is source of package metadata.
