@@ -79,8 +79,15 @@ pip install "cluster-monitor==1.0.0"
 pip install "cluster-monitor==1.0.0b4"
 ```
 
-The publish workflow triggers on push tags matching `[0-9]*.[0-9]*.[0-9]*` and performs strict
-exact tag validation before any build or upload step.
+The publish workflow triggers on stable and beta tag globs matching
+`[0-9]*.[0-9]*.[0-9]*` and `[0-9]*.[0-9]*.[0-9]*-beta[1-9][0-9]*`, then performs
+strict exact tag validation before any build or upload step.
+
+The repository uses the shared Python-project workflow layout
+`.github/workflows/ci.yml` and `.github/workflows/publish.yml`. External actions
+are pinned to immutable commit SHAs, checkout credentials are not persisted, CI
+runs cancel superseded executions for the same ref, publication runs do not
+cancel in progress, and Dependabot groups weekly GitHub Actions updates.
 
 ### Forgejo package endpoints
 
@@ -91,7 +98,7 @@ exact tag validation before any build or upload step.
 
 Set:
 
-- Repository variable: `FORGEJO_PACKAGE_USERNAME`
+- Repository secret: `FORGEJO_PACKAGE_USERNAME`
 - Repository secret: `FORGEJO_PACKAGE_TOKEN`
 
 Only the publish upload step receives these values. They are intentionally not used for lint,
