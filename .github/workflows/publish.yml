@@ -57,7 +57,7 @@ jobs:
           ls dist/*.tar.gz dist/*linux_armv7l.whl dist/*linux_aarch64.whl
       - name: upload release artifacts
         env:
-          FORGEJO_PACKAGE_USERNAME: ${{ vars.FORGEJO_PACKAGE_USERNAME }}
+          FORGEJO_PACKAGE_USERNAME: ${{ secrets.FORGEJO_PACKAGE_USERNAME }}
           FORGEJO_PACKAGE_TOKEN: ${{ secrets.FORGEJO_PACKAGE_TOKEN }}
         run: |
           python -m scripts.publish_forgejo \
