@@ -1,0 +1,7 @@
+-r ../requirements.txt
+
+ruff==0.12.7
+build==1.2.2
+setuptools==69.5.1
+wheel==0.44.0
+twine==5.1.1

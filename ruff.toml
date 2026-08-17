@@ -1,0 +1,16 @@
+target-version = "py39"
+line-length = 100
+src = ["cluster_monitor", "scripts", "tests"]
+extend-exclude = [
+  "lib/waveshare_epd",
+  "dist",
+  "build",
+  ".ruff_cache",
+  ".pytest_cache",
+  "__pycache__",
+  ".venv",
+  "venv",
+]
+
+[lint]
+per-file-ignores = {"**/__init__.py" = ["F401", "F403"], "cluster_monitor/__main__.py" = ["F401"], "cluster_monitor/presentation/renderers/renderer_manager.py" = ["F401"]}
