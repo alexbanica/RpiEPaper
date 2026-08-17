@@ -339,6 +339,7 @@ def _validate_artifact_set(
 
 
 def _build(output_dir: Path, project_root: Path) -> int:
+    output_dir = output_dir.resolve()
     _clear_output_dir(output_dir)
     project_name, version = _read_project_metadata(project_root)
     with _temporary_source_tree(project_root) as source_root:
