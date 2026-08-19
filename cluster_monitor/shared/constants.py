@@ -2,9 +2,11 @@
 
 from pathlib import Path
 
-PROJECT_DIR = Path(__file__).resolve().parents[2]
+PACKAGE_DIR = Path(__file__).resolve().parents[1]
+PROJECT_DIR = PACKAGE_DIR.parent
 LIB_DIR = PROJECT_DIR / "lib"
-RESOURCES_DIR = PROJECT_DIR / "resources"
+RESOURCES_DIR = PACKAGE_DIR / "resources"
+CONFIG_DIR_ENV = "CLUSTER_MONITOR_CONFIG_DIR"
 
 RENDERER_TYPE_EPAPER = "epaper"
 RENDERER_TYPE_CONSOLE = "console"

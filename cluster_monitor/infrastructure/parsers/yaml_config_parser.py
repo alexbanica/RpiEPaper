@@ -1,15 +1,38 @@
 import logging
+import os
 from pathlib import Path
 
 import yaml
 
 from cluster_monitor.domain.entities import ContextEntity
 from cluster_monitor.domain.services import ConfigParserInterface
+from cluster_monitor.shared.constants import CONFIG_DIR_ENV
 
 
 class YamlConfigParser(ConfigParserInterface):
     def __init__(self, config_dir: Path):
         self.config_dir = config_dir
+
+    @classmethod
+    def parse_runtime_config(
+        cls,
+        context: ContextEntity,
+        packaged_config_dir: Path,
+        config_file_names: list[str],
+    ) -> None:
+        """Load packaged defaults, then an optional external configuration override."""
+
+        packaged_config_dir = Path(packaged_config_dir)
+        cls(packaged_config_dir).parse(context, config_file_names)
+
+        configured_dir = os.environ.get(CONFIG_DIR_ENV)
+        external_config_dir = (
+            Path(configured_dir).expanduser() if configured_dir else Path.cwd() / "resources"
+        )
+        if external_config_dir.resolve() == packaged_config_dir.resolve():
+            return
+
+        cls(external_config_dir).parse(context, config_file_names)
 
     def parse(self, context: ContextEntity, config_file_names: list[str]) -> None:
         for config_file_name in config_file_names:

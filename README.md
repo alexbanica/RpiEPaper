@@ -172,7 +172,20 @@ python -m cluster_monitor -mc-hdd
 ```
 
 ## Configuration
-Default config file path: `resources/config.yml`
+
+The installed package always loads its bundled default configuration from
+`cluster_monitor/resources/config.yml`. It then loads external overrides from
+`./resources` by default, preserving source-checkout behavior. Set
+`CLUSTER_MONITOR_CONFIG_DIR` to use an explicit configuration directory when
+starting the installed package from another working directory:
+
+```bash
+CLUSTER_MONITOR_CONFIG_DIR=/mnt/data/ePaperHat/resources \
+  /mnt/data/.venv/bin/python -m cluster_monitor --renderer epaper
+```
+
+Keep deployment-specific values in `config.local.yml` under that external
+directory; the local file is not included in published packages.
 
 Example:
 ```yaml

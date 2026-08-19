@@ -48,7 +48,9 @@
 - `cluster_monitor/presentation/controllers/requests`: request DTOs for invocation modes.
 - `cluster_monitor/presentation/renderers`: renderer abstractions and concrete output rendering.
 - `cluster_monitor/presentation/renderers/epapers`: Waveshare/ePaper-specific rendering adapters.
-- `resources/config.yml` is the default runtime configuration.
+- `cluster_monitor/resources/config.yml` is the packaged default runtime
+  configuration; `CLUSTER_MONITOR_CONFIG_DIR` selects an external override
+  directory and otherwise defaults to `./resources`.
 - `tests/` contains deterministic unit coverage only for domain logic.
 
 ## Test Scope

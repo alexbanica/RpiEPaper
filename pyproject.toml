@@ -38,4 +38,5 @@ where = [".", "lib"]
 include = ["cluster_monitor*", "waveshare_epd*"]
 
 [tool.setuptools.package-data]
+"cluster_monitor" = ["resources/Font.ttc", "resources/config.yml"]
 "waveshare_epd" = ["*.so"]

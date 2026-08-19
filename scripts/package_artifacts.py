@@ -25,11 +25,15 @@ REQUIRED_LIBS = {
     "waveshare_epd/sysfs_gpio.so": (2, 183),
     "waveshare_epd/sysfs_software_spi.so": (2, 183),
 }
+REQUIRED_RESOURCE_FILES = {
+    "cluster_monitor/resources/Font.ttc",
+    "cluster_monitor/resources/config.yml",
+}
 REQUIRED_PACKAGE_FILES = {
     "cluster_monitor/__init__.py",
     "cluster_monitor/__main__.py",
     "waveshare_epd/__init__.py",
-}
+} | REQUIRED_RESOURCE_FILES
 WHEEL_PLATFORMS = ("linux_armv7l", "linux_aarch64")
 
 
@@ -89,10 +93,17 @@ def _read_metadata_field(payload: bytes, field: str) -> str:
 
 
 def _read_project_hashes(project_root: Path) -> Dict[str, bytes]:
-    return {
+    source_hashes = {
         name: (project_root / "lib" / name).read_bytes()
         for name in REQUIRED_LIBS
     }
+    source_hashes.update(
+        {
+            name: (project_root / name).read_bytes()
+            for name in REQUIRED_RESOURCE_FILES
+        }
+    )
+    return source_hashes
 
 
 @contextmanager
@@ -104,10 +115,7 @@ def _temporary_source_tree(source_root: Path) -> Iterator[Path]:
 
 
 def _source_hashes(project_root: Path) -> dict[str, bytes]:
-    return {
-        name: (project_root / "lib" / name).read_bytes()
-        for name in REQUIRED_LIBS
-    }
+    return _read_project_hashes(project_root)
 
 
 def _read_archive_members(artifact: Path) -> dict[str, bytes]:
@@ -260,6 +268,11 @@ def _validate_metadata(
     for path, (expected_class, expected_machine) in REQUIRED_LIBS.items():
         payload = normalized_members[path]
         _validate_elf(path, payload, expected_class, expected_machine)
+        if hashlib.sha256(payload).digest() != hashlib.sha256(source_hashes[path]).digest():
+            raise ValueError(f"{artifact.name}: byte mismatch for {path}")
+
+    for path in REQUIRED_RESOURCE_FILES:
+        payload = normalized_members[path]
         if hashlib.sha256(payload).digest() != hashlib.sha256(source_hashes[path]).digest():
             raise ValueError(f"{artifact.name}: byte mismatch for {path}")
 

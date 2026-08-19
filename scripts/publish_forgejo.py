@@ -37,7 +37,12 @@ REQUIRED_LIBRARY_FILES = (
     "sysfs_gpio.so",
     "sysfs_software_spi.so",
 )
+REQUIRED_RESOURCE_FILES = (
+    "Font.ttc",
+    "config.yml",
+)
 LIBRARY_SOURCE_DIR = Path(__file__).resolve().parents[1] / "lib" / "waveshare_epd"
+RESOURCE_SOURCE_DIR = Path(__file__).resolve().parents[1] / PROJECT_NAME / "resources"
 
 
 def _resolve_credentials() -> tuple[str, str]:
@@ -235,6 +240,21 @@ def _validate_dependency_install(version: str, target_root: Path) -> None:
             f"expected {version}, got {metadata_version}"
         )
 
+    _validate_installed_resources(target_root)
+
+
+def _validate_installed_resources(target_root: Path) -> None:
+    for name in REQUIRED_RESOURCE_FILES:
+        installed_resource = target_root / PROJECT_NAME / "resources" / name
+        if not installed_resource.is_file():
+            raise PublishError(f"installed resource missing: {name}")
+
+        source_resource = RESOURCE_SOURCE_DIR / name
+        if not source_resource.is_file():
+            raise PublishError(f"source resource missing: {source_resource}")
+        if installed_resource.read_bytes() != source_resource.read_bytes():
+            raise PublishError(f"installed resource bytes mismatch: {name}")
+
 
 def _validate_imported_cluster_monitor(version: str, target_root: Path) -> None:
     command = [
@@ -412,6 +432,8 @@ def validate_installation(
             raise PublishError(f"source library missing: {source_library}")
         if installed_library.read_bytes() != source_library.read_bytes():
             raise PublishError(f"installed library bytes mismatch: {name}")
+
+    _validate_installed_resources(target)
 
 
 def _create_work_dir(work_dir: Path | None, artifact_dir: Path) -> Path:

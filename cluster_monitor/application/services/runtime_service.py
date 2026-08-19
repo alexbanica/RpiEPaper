@@ -29,7 +29,7 @@ class RuntimeService:
 
     def run(self, context: ContextEntity) -> None:
         self.setup_logging()
-        YamlConfigParser(RESOURCES_DIR).parse(context, CONFIG_FILE_PATHS)
+        YamlConfigParser.parse_runtime_config(context, RESOURCES_DIR, CONFIG_FILE_PATHS)
 
         rpi_service = RpiService()
         docker_service = DockerService()
