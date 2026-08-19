@@ -6,7 +6,7 @@ import yaml
 
 from cluster_monitor.domain.entities import ContextEntity
 from cluster_monitor.domain.services import ConfigParserInterface
-from cluster_monitor.shared.constants import CONFIG_DIR_ENV
+from cluster_monitor.shared.constants import CONFIG_FILE_ENV
 
 
 class YamlConfigParser(ConfigParserInterface):
@@ -25,14 +25,19 @@ class YamlConfigParser(ConfigParserInterface):
         packaged_config_dir = Path(packaged_config_dir)
         cls(packaged_config_dir).parse(context, config_file_names)
 
-        configured_dir = os.environ.get(CONFIG_DIR_ENV)
-        external_config_dir = (
-            Path(configured_dir).expanduser() if configured_dir else Path.cwd() / "resources"
-        )
-        if external_config_dir.resolve() == packaged_config_dir.resolve():
+        configured_file = os.environ.get(CONFIG_FILE_ENV)
+        if configured_file is not None:
+            external_config_file = Path(configured_file).expanduser()
+            if not external_config_file.is_file():
+                raise FileNotFoundError(
+                    f"{CONFIG_FILE_ENV} does not point to a file: {external_config_file}"
+                )
+            cls(external_config_file.parent).parse(context, [external_config_file.name])
             return
 
-        cls(external_config_dir).parse(context, config_file_names)
+        external_config_dir = Path.cwd() / "resources"
+        if external_config_dir.resolve() != packaged_config_dir.resolve():
+            cls(external_config_dir).parse(context, config_file_names)
 
     def parse(self, context: ContextEntity, config_file_names: list[str]) -> None:
         for config_file_name in config_file_names:

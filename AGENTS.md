@@ -49,8 +49,9 @@
 - `cluster_monitor/presentation/renderers`: renderer abstractions and concrete output rendering.
 - `cluster_monitor/presentation/renderers/epapers`: Waveshare/ePaper-specific rendering adapters.
 - `cluster_monitor/resources/config.yml` is the packaged default runtime
-  configuration; `CLUSTER_MONITOR_CONFIG_DIR` selects an external override
-  directory and otherwise defaults to `./resources`.
+  configuration; `CLUSTER_MONITOR_CONFIG_FILE` selects one exact external YAML
+  override, and otherwise the runtime checks `./resources` for established
+  external configuration filenames.
 - `tests/` contains deterministic unit coverage only for domain logic.
 
 ## Test Scope

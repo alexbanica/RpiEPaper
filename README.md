@@ -174,18 +174,20 @@ python -m cluster_monitor -mc-hdd
 ## Configuration
 
 The installed package always loads its bundled default configuration from
-`cluster_monitor/resources/config.yml`. It then loads external overrides from
-`./resources` by default, preserving source-checkout behavior. Set
-`CLUSTER_MONITOR_CONFIG_DIR` to use an explicit configuration directory when
-starting the installed package from another working directory:
+`cluster_monitor/resources/config.yml`. Set `CLUSTER_MONITOR_CONFIG_FILE` to an
+exact external YAML file that should be loaded afterward as the final override:
 
 ```bash
-CLUSTER_MONITOR_CONFIG_DIR=/mnt/data/ePaperHat/resources \
+CLUSTER_MONITOR_CONFIG_FILE=/mnt/data/ePaperHat/resources/config.local.yml \
   /mnt/data/.venv/bin/python -m cluster_monitor --renderer epaper
 ```
 
-Keep deployment-specific values in `config.local.yml` under that external
-directory; the local file is not included in published packages.
+When the variable is unset, the runtime checks `./resources` for the established
+`config.yaml`, `config.yml`, `config.local.yaml`, and `config.local.yml` files,
+preserving source-checkout behavior. An explicitly configured path must exist;
+otherwise startup fails instead of silently using a different configuration.
+Keep deployment-specific values in the external file; local configuration is
+not included in published packages.
 
 Example:
 ```yaml
@@ -199,6 +201,16 @@ cluster_monitor:
     ssh:
       user: ''
       key_path: ''
-      command_rpi_status: "PYTHONPATH=/mnt/data/ePaperHat python3 -m cluster_monitor -mc"
-      command_rpi_hdd_status: "PYTHONPATH=/mnt/data/ePaperHat python3 -m cluster_monitor -mc-hdd"
+      command_rpi_status: "/mnt/data/.venv/bin/python -m cluster_monitor -mc"
+      command_rpi_hdd_status: "/mnt/data/.venv/bin/python -m cluster_monitor -mc-hdd"
+```
+
+### Raspberry Pi 5 with Python 3.13
+
+Expose system Python packages to the existing virtual environment:
+
+```bash
+sed -i \
+  's/^include-system-site-packages = false$/include-system-site-packages = true/' \
+  ~/.venv/pyvenv.cfg
 ```
