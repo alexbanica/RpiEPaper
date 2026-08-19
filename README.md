@@ -158,6 +158,16 @@ Replace `<version>` with either `X.Y.Z` or `X.Y.ZbN`.
   platform wheels.
 - It does not replace runtime validation on Raspberry Pi, Jetson, or Sunrise X3 hardware.
 
+### Current verification status
+
+The workflows and release checks above are configured, but repository-local
+evidence does not establish a current successful hosted GitHub Actions publish,
+live Forgejo upload and anonymous target-platform install, required branch
+protection, or native execution on Raspberry Pi/ePaper, Jetson, or Sunrise X3
+hardware. Treat those as pending operational verification. Static archive and
+byte checks do not prove that the packaged native libraries load or that display,
+SSH, Docker, sensor, and renderer integrations work on target hardware.
+
 ## Usage
 
 Run main monitor:

@@ -18,12 +18,6 @@
 - This policy supersedes any more general testing or validation wording
   elsewhere in this file.
 
-## Active Spec
-- `docs/specs/prune-unused-python-modules.md`
-
-## Branch
-- `spec/prune-unused-python-modules`
-
 ## Architecture Rules
 - DDD/onion split:
 - `cluster_monitor/domain`: entities and domain service interfaces for cluster, node, Docker, disk, and temperature status.
@@ -68,6 +62,25 @@
 ## Packaging Rules
 - `pyproject.toml` is source of package metadata.
 - `requirements.txt` + `requirements/*.txt` are the dependency install flows.
+- Release tags are exactly `X.Y.Z` or `X.Y.Z-betaN`, without a leading `v`;
+  beta metadata uses the PEP 440 form `X.Y.ZbN`.
+- A release contains exactly one sdist plus `py3-none-linux_armv7l` and
+  `py3-none-linux_aarch64` wheels. Never emit a universal wheel.
+- Every release artifact contains the four tracked Waveshare shared libraries:
+  `DEV_Config_32.so`, `DEV_Config_64.so`, `sysfs_gpio.so`, and
+  `sysfs_software_spi.so`, with their source bytes preserved.
+- Resolve package output directories before building from a temporary source
+  copy so relative `dist` output is built and validated in the same location.
+- Forgejo publishing uses `FORGEJO_PACKAGE_USERNAME` and
+  `FORGEJO_PACKAGE_TOKEN`; expose them only to the publish step and scope Twine
+  credentials only to the upload subprocess.
+
+## Specs And Plans
+
+- `docs/specs` and `docs/plans` are for active work, not completed-work history.
+- After durable behavior is consolidated into `README.md`, `AGENTS.md`, or
+  maintained package/workflow configuration, remove the completed spec and its
+  matching plan together.
 
 ## HTTP/OpenAPI
 - No HTTP controllers in this project.
