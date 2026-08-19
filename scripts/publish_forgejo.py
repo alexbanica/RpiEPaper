@@ -29,8 +29,7 @@ WHEEL_SUFFIX = ".whl"
 ARMV7_WHEEL = "-py3-none-linux_armv7l.whl"
 AARCH64_WHEEL = "-py3-none-linux_aarch64.whl"
 DEFAULT_REPOSITORY_URL = "https://forgejo.alexlab.nl/api/packages/public/pypi"
-DEFAULT_SIMPLE_INDEX_URL = "https://forgejo.alexlab.nl/api/packages/public/pypi/simple"
-DEFAULT_DEPENDENCY_INDEX_URL = "https://pypi.org/simple"
+DEFAULT_SIMPLE_INDEX_URL = "https://pypi.alexlab.nl/simple/"
 REQUIRED_LIBRARY_FILES = (
     "DEV_Config_32.so",
     "DEV_Config_64.so",
@@ -206,7 +205,6 @@ def _run_pip_install(
 def _run_dependency_install(
     version: str,
     simple_index_url: str,
-    dependency_index_url: str,
     target_root: Path,
 ) -> subprocess.CompletedProcess:
     command = [
@@ -217,8 +215,6 @@ def _run_dependency_install(
         f"cluster-monitor=={version}",
         "--index-url",
         simple_index_url,
-        "--extra-index-url",
-        dependency_index_url,
         "--target",
         str(target_root),
         "--isolated",
@@ -287,7 +283,6 @@ def verify_installations(
     simple_index_url: str,
     targets: tuple[str, ...],
     install_root: Path,
-    dependency_index_url: str = DEFAULT_DEPENDENCY_INDEX_URL,
 ) -> list[subprocess.CompletedProcess]:
     """Validate dependencies and published artifacts for each target platform."""
 
@@ -295,7 +290,6 @@ def verify_installations(
     dependency_result = _run_dependency_install(
         version=version,
         simple_index_url=simple_index_url,
-        dependency_index_url=dependency_index_url,
         target_root=dependency_root,
     )
     if dependency_result.returncode != 0:
@@ -456,7 +450,6 @@ def publish(
     repository_url: str,
     simple_index_url: str,
     work_dir: Path | None = None,
-    dependency_index_url: str = DEFAULT_DEPENDENCY_INDEX_URL,
 ) -> bool:
     """Validate artifacts and publish them to Forgejo with credential scoping."""
 
@@ -477,7 +470,6 @@ def publish(
         verify_installations(
             version=version,
             simple_index_url=simple_index_url,
-            dependency_index_url=dependency_index_url,
             targets=("linux_armv7l", "linux_aarch64"),
             install_root=verify_root,
         )
@@ -506,7 +498,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", default=None)
     parser.add_argument("--repository-url", default=DEFAULT_REPOSITORY_URL)
     parser.add_argument("--simple-index-url", default=DEFAULT_SIMPLE_INDEX_URL)
-    parser.add_argument("--dependency-index-url", default=DEFAULT_DEPENDENCY_INDEX_URL)
     args = parser.parse_args(argv)
 
     try:
@@ -519,7 +510,6 @@ def main(argv: list[str] | None = None) -> int:
             token=token,
             repository_url=args.repository_url,
             simple_index_url=args.simple_index_url,
-            dependency_index_url=args.dependency_index_url,
         )
     except PublishError as error:
         raise SystemExit(f"publish failed: {error}") from error
