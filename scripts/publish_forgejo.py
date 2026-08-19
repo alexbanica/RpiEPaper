@@ -30,6 +30,7 @@ ARMV7_WHEEL = "-py3-none-linux_armv7l.whl"
 AARCH64_WHEEL = "-py3-none-linux_aarch64.whl"
 DEFAULT_REPOSITORY_URL = "https://forgejo.alexlab.nl/api/packages/public/pypi"
 DEFAULT_SIMPLE_INDEX_URL = "https://forgejo.alexlab.nl/api/packages/public/pypi/simple"
+DEFAULT_DEPENDENCY_INDEX_URL = "https://pypi.org/simple"
 REQUIRED_LIBRARY_FILES = (
     "DEV_Config_32.so",
     "DEV_Config_64.so",
@@ -197,6 +198,44 @@ def _run_pip_install(
     return _run_command(command, env=_sanitize_pip_environment())
 
 
+def _run_dependency_install(
+    version: str,
+    simple_index_url: str,
+    dependency_index_url: str,
+    target_root: Path,
+) -> subprocess.CompletedProcess:
+    command = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        f"cluster-monitor=={version}",
+        "--index-url",
+        simple_index_url,
+        "--extra-index-url",
+        dependency_index_url,
+        "--target",
+        str(target_root),
+        "--isolated",
+        "--no-input",
+        "--no-cache-dir",
+    ]
+    return _run_command(command, env=_sanitize_pip_environment())
+
+
+def _validate_dependency_install(version: str, target_root: Path) -> None:
+    metadata = target_root / f"{PROJECT_NAME}-{version}.dist-info" / "METADATA"
+    if not metadata.is_file():
+        raise PublishError(f"dependency-resolving install metadata missing: {metadata}")
+
+    metadata_version = _read_metadata_version(metadata)
+    if metadata_version != version:
+        raise PublishError(
+            "dependency-resolving install metadata version mismatch: "
+            f"expected {version}, got {metadata_version}"
+        )
+
+
 def _validate_imported_cluster_monitor(version: str, target_root: Path) -> None:
     command = [
         sys.executable,
@@ -228,10 +267,22 @@ def verify_installations(
     simple_index_url: str,
     targets: tuple[str, ...],
     install_root: Path,
+    dependency_index_url: str = DEFAULT_DEPENDENCY_INDEX_URL,
 ) -> list[subprocess.CompletedProcess]:
-    """Validate published artifacts by installing them for each target platform."""
+    """Validate dependencies and published artifacts for each target platform."""
 
-    results: list[subprocess.CompletedProcess] = []
+    dependency_root = Path(install_root) / "dependency-resolution"
+    dependency_result = _run_dependency_install(
+        version=version,
+        simple_index_url=simple_index_url,
+        dependency_index_url=dependency_index_url,
+        target_root=dependency_root,
+    )
+    if dependency_result.returncode != 0:
+        raise PublishError("dependency-resolving pip install failed")
+    _validate_dependency_install(version=version, target_root=dependency_root)
+
+    results: list[subprocess.CompletedProcess] = [dependency_result]
     for target in targets:
         target_root = Path(install_root) / target
         target_root.mkdir(parents=True, exist_ok=True)
@@ -383,6 +434,7 @@ def publish(
     repository_url: str,
     simple_index_url: str,
     work_dir: Path | None = None,
+    dependency_index_url: str = DEFAULT_DEPENDENCY_INDEX_URL,
 ) -> bool:
     """Validate artifacts and publish them to Forgejo with credential scoping."""
 
@@ -403,6 +455,7 @@ def publish(
         verify_installations(
             version=version,
             simple_index_url=simple_index_url,
+            dependency_index_url=dependency_index_url,
             targets=("linux_armv7l", "linux_aarch64"),
             install_root=verify_root,
         )
@@ -431,6 +484,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--version", default=None)
     parser.add_argument("--repository-url", default=DEFAULT_REPOSITORY_URL)
     parser.add_argument("--simple-index-url", default=DEFAULT_SIMPLE_INDEX_URL)
+    parser.add_argument("--dependency-index-url", default=DEFAULT_DEPENDENCY_INDEX_URL)
     args = parser.parse_args(argv)
 
     try:
@@ -443,6 +497,7 @@ def main(argv: list[str] | None = None) -> int:
             token=token,
             repository_url=args.repository_url,
             simple_index_url=args.simple_index_url,
+            dependency_index_url=args.dependency_index_url,
         )
     except PublishError as error:
         raise SystemExit(f"publish failed: {error}") from error

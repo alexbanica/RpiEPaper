@@ -75,9 +75,19 @@ Beta tags are normalized to PEP 440 in distribution metadata and installs:
 Exact install forms:
 
 ```bash
-pip install "cluster-monitor==1.0.0"
-pip install "cluster-monitor==1.0.0b4"
+python -m pip install \
+  --index-url "https://forgejo.alexlab.nl/api/packages/public/pypi/simple" \
+  --extra-index-url "https://pypi.org/simple" \
+  "cluster-monitor==1.0.0"
+
+python -m pip install \
+  --index-url "https://forgejo.alexlab.nl/api/packages/public/pypi/simple" \
+  --extra-index-url "https://pypi.org/simple" \
+  "cluster-monitor==1.0.0b4"
 ```
+
+Forgejo supplies `cluster-monitor`; the additional public PyPI index supplies
+third-party dependencies that are not published in Forgejo.
 
 The publish workflow triggers on stable and beta tag globs matching
 `[0-9]*.[0-9]*.[0-9]*` and `[0-9]*.[0-9]*.[0-9]*-beta[1-9][0-9]*`, then performs
@@ -125,7 +135,9 @@ The release process is immutable per version: an existing package version in For
 
 ### Anonymous post-publish verification
 
-Credential-free install checks are performed from the public simple index:
+The publish workflow first performs the same credential-free,
+dependency-resolving install documented above. It then checks both published
+platform wheels independently from the public simple index:
 
 ```bash
 python -m pip install "cluster-monitor==<version>" --no-deps \
