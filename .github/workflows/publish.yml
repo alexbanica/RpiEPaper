@@ -87,6 +87,5 @@ jobs:
           FORGEJO_PACKAGE_TOKEN: ${{ secrets.FORGEJO_PACKAGE_TOKEN }}
         run: |
           python -m scripts.publish_forgejo \
-            --simple-index-url "https://forgejo.alexlab.nl/api/packages/public/pypi/simple" \
-            --dependency-index-url "https://pypi.org/simple"
+            --simple-index-url "https://pypi.alexlab.nl/simple/"
         # Twine is only called in scripts.publish_forgejo.

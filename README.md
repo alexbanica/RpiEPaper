@@ -48,7 +48,7 @@ pip install -r requirements/sunrise_x3.txt
 pip install .
 ```
 
-## Forgejo Python package publishing
+## Forgejo publication and routed package installation
 
 ### GitHub checks and branch rules
 
@@ -76,18 +76,18 @@ Exact install forms:
 
 ```bash
 python -m pip install \
-  --index-url "https://forgejo.alexlab.nl/api/packages/public/pypi/simple" \
-  --extra-index-url "https://pypi.org/simple" \
+  --index-url "https://pypi.alexlab.nl/simple/" \
   "cluster-monitor==1.0.0"
 
 python -m pip install \
-  --index-url "https://forgejo.alexlab.nl/api/packages/public/pypi/simple" \
-  --extra-index-url "https://pypi.org/simple" \
+  --index-url "https://pypi.alexlab.nl/simple/" \
   "cluster-monitor==1.0.0b4"
 ```
 
-Forgejo supplies `cluster-monitor`; the additional public PyPI index supplies
-third-party dependencies that are not published in Forgejo.
+Use `https://pypi.alexlab.nl/simple/` as the sole install and download index.
+It routes `cluster-monitor` to its Forgejo package source and resolves public
+third-party dependencies through the cluster cache. Publication remains a
+direct Forgejo upload.
 
 The publish workflow triggers on stable and beta tag globs matching
 `[0-9]*.[0-9]*.[0-9]*` and `[0-9]*.[0-9]*.[0-9]*-beta[1-9][0-9]*`, then performs
@@ -102,7 +102,7 @@ cancel in progress, and Dependabot groups weekly GitHub Actions updates.
 ### Forgejo package endpoints
 
 - Upload endpoint: `https://forgejo.alexlab.nl/api/packages/public/pypi`
-- Simple index: `https://forgejo.alexlab.nl/api/packages/public/pypi/simple`
+- Routed install index: `https://pypi.alexlab.nl/simple/`
 
 ### GitHub credentials
 
@@ -137,15 +137,15 @@ The release process is immutable per version: an existing package version in For
 
 The publish workflow first performs the same credential-free,
 dependency-resolving install documented above. It then checks both published
-platform wheels independently from the public simple index:
+platform wheels independently from the routed install index:
 
 ```bash
 python -m pip install "cluster-monitor==<version>" --no-deps \
-  --index-url "https://forgejo.alexlab.nl/api/packages/public/pypi/simple" \
+  --index-url "https://pypi.alexlab.nl/simple/" \
   --platform linux_armv7l --only-binary=:all: --target /tmp/armv7-verify
 
 python -m pip install "cluster-monitor==<version>" --no-deps \
-  --index-url "https://forgejo.alexlab.nl/api/packages/public/pypi/simple" \
+  --index-url "https://pypi.alexlab.nl/simple/" \
   --platform linux_aarch64 --only-binary=:all: --target /tmp/aarch64-verify
 ```
 
