@@ -8,7 +8,11 @@ from cluster_monitor.infrastructure.services.docker_service import DockerService
 from cluster_monitor.infrastructure.services.remote_service import RemoteService
 from cluster_monitor.infrastructure.services.rpi_service import RpiService
 from cluster_monitor.infrastructure.services.supervisor_service import SupervisorService
-from cluster_monitor.shared.constants import CONFIG_FILE_PATHS, RESOURCES_DIR
+from cluster_monitor.shared.constants import (
+    CONFIG_FILE_PATHS,
+    RENDERER_TYPE_EPAPER,
+    RESOURCES_DIR,
+)
 
 
 class RuntimeService:
@@ -30,6 +34,13 @@ class RuntimeService:
     def run(self, context: ContextEntity) -> None:
         self.setup_logging()
         YamlConfigParser.parse_runtime_config(context, RESOURCES_DIR, CONFIG_FILE_PATHS)
+
+        if context.render_type == RENDERER_TYPE_EPAPER and not context.is_monitor_client:
+            from cluster_monitor.infrastructure.services.raspberry_pi_gpio_service import (
+                RaspberryPiGpioService,
+            )
+
+            RaspberryPiGpioService().initialize_for_epaper()
 
         rpi_service = RpiService()
         docker_service = DockerService()
