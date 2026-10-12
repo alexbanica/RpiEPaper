@@ -92,6 +92,12 @@ is an `LGPIOFactory` for the discovered chip. There is no fixed-chip or
 alternate-backend fallback for this Raspberry Pi ePaper path. The shared
 factory remains under gpiozero's process-lifetime cleanup.
 
+If startup reports that `LGPIOFactory` opened or reported a different chip,
+install a gpiozero version that honors the explicit `chip` argument. Startup
+checks the new factory's reported chip. A mismatch stops initialization and
+closes that factory without registering it as gpiozero's process-wide factory
+or importing Waveshare modules.
+
 The native read-only check on Pi51 on 2026-10-12 selected `/dev/gpiochip15`
 (`pinctrl-rp1`) and verified all eight line-name/offset mappings. Chip 15 is an
 observation from that check, not a stable configuration value. Repeated

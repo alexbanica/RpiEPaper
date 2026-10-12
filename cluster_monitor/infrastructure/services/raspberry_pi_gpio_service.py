@@ -228,11 +228,31 @@ class RaspberryPiGpioService:
         )
         try:
             factory = LGPIOFactory(chip=result.index)
-            Device.pin_factory = factory
         except Exception as exc:
             self._fail(
                 f"could not open selected controller {result.device} (chip {result.index}) "
                 f"with LGPIOFactory: {exc}",
+                exc,
+            )
+
+        try:
+            actual_chip = getattr(factory, "chip", None)
+            if actual_chip != result.index:
+                raise RuntimeError(
+                    f"selected controller {result.device} (chip {result.index}), "
+                    f"but LGPIOFactory opened/reported chip {actual_chip!r}. "
+                    "Install a gpiozero version compatible with the chip argument."
+                )
+            Device.pin_factory = factory
+        except Exception as exc:
+            close_detail = ""
+            try:
+                factory.close()
+            except Exception as close_exc:
+                close_detail = f"; closing the new factory also failed: {close_exc}"
+            self._fail(
+                f"could not configure LGPIOFactory for selected controller "
+                f"{result.device} (chip {result.index}): {exc}{close_detail}",
                 exc,
             )
         return factory
