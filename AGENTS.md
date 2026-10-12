@@ -46,6 +46,16 @@
   configuration; `CLUSTER_MONITOR_CONFIG_FILE` selects one exact external YAML
   override, and otherwise the runtime checks `./resources` for established
   external configuration filenames.
+- Raspberry Pi ePaper startup discovers the GPIO header controller from
+  read-only metadata before importing Waveshare modules. It requires one unique
+  controller whose offsets 5, 6, 13, 17, 18, 19, 24, and 25 are named
+  `GPIO<N>`, then installs or reuses a `gpiozero` `LGPIOFactory` for that chip.
+  Discovery claims no lines and fails with diagnostics on inconclusive
+  metadata, zero or multiple matches, unavailable dependencies, or conflicting
+  factory configuration; this path has no alternate-backend fallback. Display
+  and button devices use the shared process-lifetime factory, with cleanup left
+  to gpiozero. Console and monitor-client paths do not invoke this discovery
+  or import Waveshare hardware.
 - `tests/` contains deterministic unit coverage only for domain logic.
 
 ## Test Scope
@@ -62,6 +72,9 @@
 ## Packaging Rules
 - `pyproject.toml` is source of package metadata.
 - `requirements.txt` + `requirements/*.txt` are the dependency install flows.
+- `pyproject.toml` provides the `rpi` optional dependency extra for installing
+  Raspberry Pi dependencies with the package; `requirements/rpi.txt` remains
+  the requirements-file flow.
 - Release tags are exactly `X.Y.Z` or `X.Y.Z-betaN`, without a leading `v`;
   beta metadata uses the PEP 440 form `X.Y.ZbN`.
 - A release contains exactly one sdist plus `py3-none-linux_armv7l` and

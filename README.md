@@ -48,6 +48,66 @@ pip install -r requirements/sunrise_x3.txt
 pip install .
 ```
 
+For a Raspberry Pi installation from this source checkout, the package extra
+installs the Raspberry Pi dependencies together:
+
+```bash
+pip install '.[rpi]'
+```
+
+For an already published release available from the established package index,
+install its Raspberry Pi extra with an exact version:
+
+```bash
+python -m pip install \
+  --index-url "https://pypi.alexlab.nl/simple/" \
+  "cluster-monitor[rpi]==<version>"
+```
+
+An existing virtual environment with `include-system-site-packages = true` can
+also use `lgpio>=0.2.2.0` supplied by system Python, provided the active
+environment has the other runtime dependencies it needs. The explicit
+Raspberry Pi extra is the supported installation path for declaring all
+platform dependencies.
+
+### Raspberry Pi ePaper GPIO discovery
+
+Before importing Waveshare modules for Raspberry Pi ePaper, startup discovers
+the GPIO controller from read-only chip and line metadata and selects one
+explicit `gpiozero` `LGPIOFactory`. A controller matches only when it exposes
+all eight required BCM lines at the corresponding offsets: 5, 6, 13, 17, 18,
+19, 24, and 25, each named `GPIO<N>`. The match must be unique; chip numbers,
+enumeration order, and controller labels alone do not identify the controller.
+Metadata handles are closed, and discovery does not claim GPIO lines.
+
+For permission errors, retain the existing `sudo` invocation and device
+permissions, then check whether that runtime user can access the
+`/dev/gpiochip*` devices. Make sure the active environment provides
+`lgpio>=0.2.2.0`. Unset `GPIOZERO_PIN_FACTORY` or set it exactly to `lgpio`;
+other explicit values are reported as conflicts. Startup fails with device and
+backend diagnostics when metadata inspection is inconclusive, no controller or
+multiple controllers match, required dependencies/backend are unavailable, or
+the factory selection conflicts. An existing factory is reused only when it
+is an `LGPIOFactory` for the discovered chip. There is no fixed-chip or
+alternate-backend fallback for this Raspberry Pi ePaper path. The shared
+factory remains under gpiozero's process-lifetime cleanup.
+
+If startup reports that `LGPIOFactory` opened or reported a different chip,
+install a gpiozero version that honors the explicit `chip` argument. Startup
+checks the new factory's reported chip. A mismatch stops initialization and
+closes that factory without registering it as gpiozero's process-wide factory
+or importing Waveshare modules.
+
+The native read-only check on Pi51 on 2026-10-12 selected `/dev/gpiochip15`
+(`pinctrl-rp1`) and verified all eight line-name/offset mappings. Chip 15 is an
+observation from that check, not a stable configuration value. Repeated
+configuration reused the same `LGPIOFactory(chip=15)` instance; the isolated
+check closed and cleared its factory afterward. It made no GPIO line claims.
+This check does not validate physical display output, button operation, a full
+monitor run, detached startup, or deployment. The change preserves the existing
+sudo invocation, wiring, SPI settings, and YAML configuration; those do not need
+to change for discovery.
+
 ## Forgejo publication and routed package installation
 
 ### GitHub checks and branch rules

@@ -27,6 +27,9 @@ dependencies = [
   "PyYAML",
 ]
 
+[project.optional-dependencies]
+rpi = ["lgpio>=0.2.2.0", "spidev", "RPi.GPIO"]
+
 [project.scripts]
 cluster-monitor = "cluster_monitor.__main__:main"
 

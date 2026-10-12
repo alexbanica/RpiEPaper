@@ -1,3 +1,4 @@
 -r base.txt
 RPi.GPIO
+lgpio>=0.2.2.0
 spidev
