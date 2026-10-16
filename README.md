@@ -289,9 +289,12 @@ complete, so an empty result does not keep the display on a loading screen.
 Remote command exit status determines success: status zero keeps stdout even
 when stderr contains a warning; nonzero, missing or invalid status is a
 per-host failure. Client and result updates use coordinated ownership and
-readers receive stable naturally sorted snapshots. SSH command execution and
-stream reads remain unbounded, and the existing SSH host-key policy remains in
-effect; no bounded shutdown or trusted-host verification is implied.
+readers receive stable naturally sorted snapshots. Health and result queries,
+and hostname-update submissions, remain responsive while SSH execution or
+connection setup is blocked. Closing still waits for active SSH work to return
+before connection cleanup completes. SSH command execution and stream reads
+remain unbounded, and the existing SSH host-key policy remains in effect; no
+bounded shutdown or trusted-host verification is implied.
 
 Local `ifconfig` and `clusterhat` commands have a 10-second deadline. On
 timeout, the child is killed and reaped and its pipes are closed. This applies

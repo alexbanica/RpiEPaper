@@ -17,10 +17,12 @@ class RemoteService(RemoteServiceInterface):
     def __init__(self, hostnames: list[str], username: str, ssh_key_path: str):
         self.username = username
         self.ssh_key_path = ssh_key_path
-        # Lock order: this lifecycle lock protects clients, command-map access,
-        # command results, reconciliation state, and closure. No other lock is
-        # acquired while it is held. Worker joins always happen after release.
+        # Lock order: execution_lock may be acquired before lock, never the
+        # reverse. lock protects snapshots and lifecycle state; execution_lock
+        # serializes every client operation with reconciliation and cleanup.
+        # Never call a client method or wait for a worker while holding lock.
         self.lock = threading.Lock()
+        self.execution_lock = threading.Lock()
         self.clients: dict[str, paramiko.SSHClient] = {}
         self.async_commands = AsyncCommandsEntity()
         self.is_update_processing = False
@@ -28,9 +30,11 @@ class RemoteService(RemoteServiceInterface):
         self._closed = False
         self._close_owner: Optional[int] = None
         self._close_complete = threading.Event()
-        with self.lock:
+        with self.execution_lock:
             self._connect_all(list(hostnames))
-        logging.info("Connected to %s remote hosts", len(self.clients))
+        with self.lock:
+            client_count = len(self.clients)
+        logging.info("Connected to %s remote hosts", client_count)
 
     def _connect(self, hostname: str) -> paramiko.SSHClient:
         ssh_client = paramiko.SSHClient()
@@ -44,9 +48,11 @@ class RemoteService(RemoteServiceInterface):
         return not (transport and transport.is_active())
 
     def _remove_client(self, hostname: str) -> None:
-        """Remove a client and its results while holding the lifecycle lock."""
-        client = self.clients.pop(hostname, None)
-        self.async_commands.remove_result(hostname)
+        """Remove a client while execution_lock excludes concurrent use."""
+        with self.lock:
+            client = self.clients.pop(hostname, None)
+            for command in self.async_commands.values():
+                command.results.pop(hostname, None)
         if client:
             try:
                 client.close()
@@ -54,18 +60,32 @@ class RemoteService(RemoteServiceInterface):
                 logging.error("Error closing connection to host %s: %s", hostname, error)
 
     def _connect_all(self, hostnames: list[str]) -> None:
-        """Reconcile clients while holding the lifecycle lock."""
-        for active_hostname in list(self.clients.keys()):
+        """Reconcile clients while holding execution_lock, never lock over I/O."""
+        with self.lock:
+            active_hostnames = list(self.clients.keys())
+        for active_hostname in active_hostnames:
             if active_hostname not in hostnames:
                 self._remove_client(active_hostname)
 
         for hostname in hostnames:
-            if hostname in self.clients and self._is_ssh_client_closed(self.clients[hostname]):
+            with self.lock:
+                client = self.clients.get(hostname)
+            if client and self._is_ssh_client_closed(client):
                 self._remove_client(hostname)
 
-            if hostname not in self.clients:
+            with self.lock:
+                needs_connection = hostname not in self.clients and not self._closed
+            if needs_connection:
                 try:
-                    self.clients[hostname] = self._connect(hostname)
+                    client = self._connect(hostname)
+                    with self.lock:
+                        if self._closed:
+                            keep_client = False
+                        else:
+                            self.clients[hostname] = client
+                            keep_client = True
+                    if not keep_client:
+                        client.close()
                 except Exception as error:
                     logging.error("Error connecting to host %s: %s", hostname, error)
 
@@ -97,6 +117,37 @@ class RemoteService(RemoteServiceInterface):
             self._close_complete.wait()
             return
 
+        if current_thread is update_worker or current_thread in command_threads:
+            cleanup_worker = threading.Thread(
+                target=self._complete_close_from_worker,
+                args=(update_worker, command_threads),
+                daemon=True,
+            )
+            cleanup_worker.start()
+            return
+
+        self._complete_close(update_worker, command_threads)
+
+    def _complete_close_from_worker(
+        self,
+        update_worker: Optional[threading.Thread],
+        command_threads: list[threading.Thread],
+    ) -> None:
+        try:
+            self._complete_close(update_worker, command_threads)
+        except Exception as error:
+            logging.error("Error completing remote service close: %s", error)
+
+    def _complete_close(
+        self,
+        update_worker: Optional[threading.Thread],
+        command_threads: list[threading.Thread],
+    ) -> None:
+        # A close initiated by one of the service workers is completed by a
+        # separate thread so that it can join that worker after it unwinds.
+        current_thread = threading.current_thread()
+        with self.lock:
+            self._close_owner = threading.get_ident()
         failure = None
         try:
             if update_worker and update_worker is not current_thread:
@@ -115,14 +166,14 @@ class RemoteService(RemoteServiceInterface):
                         if failure is None:
                             failure = error
 
-            with self.lock:
-                for command in self.async_commands.values():
-                    command.results = {}
-                clients = list(self.clients.items())
-                self.clients.clear()
-            # No worker can use clients after being joined and closure is
-            # visible, so external client cleanup need not hold the lock. This
-            # also permits a client cleanup callback to call close safely.
+            with self.execution_lock:
+                with self.lock:
+                    for command in self.async_commands.values():
+                        command.results = {}
+                    clients = list(self.clients.items())
+                    self.clients.clear()
+            # All workers have stopped and closure prevents new ones, so
+            # cleanup runs without either service lock and cannot race use.
             for hostname, client in clients:
                 try:
                     client.close()
@@ -174,10 +225,20 @@ class RemoteService(RemoteServiceInterface):
         return output
 
     def _execute_on_all(self, command: str) -> dict[str, str]:
-        """Execute while holding the lifecycle lock; failed hosts are removed."""
+        """Execute while holding execution_lock; failed hosts are removed."""
         results: dict[str, str] = {}
-        for hostname in list(self.clients.keys()):
+        with self.lock:
+            hostnames = list(self.clients.keys())
+        for hostname in hostnames:
+            with self.lock:
+                if self._closed:
+                    break
+                client = self.clients.get(hostname)
+            if client is None:
+                continue
             try:
+                # _execute reads the client map; execution_lock guarantees this
+                # client remains owned until the call finishes.
                 results[hostname] = self._execute(hostname, command)
             except Exception as error:
                 logging.error("Error executing command on host %s: %s", hostname, error)
@@ -210,10 +271,14 @@ class RemoteService(RemoteServiceInterface):
         first_attempt = True
         while True:
             try:
-                with self.lock:
-                    if self._closed or not command.running:
-                        return
-                    command.results = self._execute_on_all(command.command)
+                with self.execution_lock:
+                    with self.lock:
+                        if self._closed or not command.running:
+                            return
+                    results = self._execute_on_all(command.command)
+                    with self.lock:
+                        if not self._closed and command_uuid in self.async_commands:
+                            command.results = results
             except KeyboardInterrupt:
                 with self.lock:
                     command.running = False
@@ -251,8 +316,10 @@ class RemoteService(RemoteServiceInterface):
 
     def _update_hostnames_task(self, hostnames: list[str]) -> None:
         try:
-            with self.lock:
-                if not self._closed:
+            with self.execution_lock:
+                with self.lock:
+                    is_open = not self._closed
+                if is_open:
                     self._connect_all(hostnames)
         finally:
             with self.lock:
@@ -270,4 +337,8 @@ class RemoteService(RemoteServiceInterface):
 
     def is_healthy(self) -> bool:
         with self.lock:
-            return all(not self._is_ssh_client_closed(client) for client in self.clients.values())
+            clients = list(self.clients.values())
+        # Paramiko transport health checks are local state reads. Keeping them
+        # outside lock preserves fresh health visibility without waiting for
+        # command execution or hostname reconciliation.
+        return all(not self._is_ssh_client_closed(client) for client in clients)
