@@ -58,12 +58,18 @@ class YamlConfigParser(ConfigParserInterface):
 
     def _parse_renderer_config(self, config: dict, context: ContextEntity) -> None:
         renderer_config = config.get("cluster_monitor", {}).get("renderer", {})
-        context.renderer_init_interval_sec = renderer_config.get("init_interval_sec", 5 * 60)
-        context.display_update_interval_sec = renderer_config.get("display_update_interval_sec", 5)
+        context.renderer_init_interval_sec = renderer_config.get(
+            "init_interval_sec", context.renderer_init_interval_sec
+        )
+        context.display_update_interval_sec = renderer_config.get(
+            "display_update_interval_sec", context.display_update_interval_sec
+        )
 
     def _parse_supervisor_config(self, config: dict, context: ContextEntity) -> None:
         supervisor_config = config.get("cluster_monitor", {}).get("supervisor", {})
-        context.docker_node_down_threshold_sec = supervisor_config.get("docker_node_down_threshold_sec", 60)
+        context.docker_node_down_threshold_sec = supervisor_config.get(
+            "docker_node_down_threshold_sec", context.docker_node_down_threshold_sec
+        )
 
     def _parse_remote_service_config(self, config: dict, context: ContextEntity) -> None:
         remote_config = config.get("cluster_monitor", {}).get("remote_service", {}).get("ssh", {})

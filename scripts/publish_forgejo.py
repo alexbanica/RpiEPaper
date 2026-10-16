@@ -11,8 +11,8 @@ import tempfile
 from pathlib import Path
 from typing import Iterable
 
-from scripts.release_version import parse_release_tag
-
+from scripts.package_artifacts import validate_release_artifacts
+from scripts.release_version import parse_release_tag, validate_canonical_version
 
 
 class ArtifactValidationError(RuntimeError):
@@ -454,7 +454,13 @@ def publish(
     """Validate artifacts and publish them to Forgejo with credential scoping."""
 
     artifact_dir = Path(artifact_dir)
-    artifacts = validate_artifacts(artifact_dir, version)
+    try:
+        version = validate_canonical_version(version)
+        artifacts = validate_artifacts(artifact_dir, version)
+        artifacts = validate_release_artifacts(artifacts, version)
+    except (ValueError, OSError) as error:
+        raise PublishError(f"local release artifact validation failed: {error}") from error
+
     work_dir = _create_work_dir(work_dir=work_dir, artifact_dir=artifact_dir)
     verify_root = work_dir / "installs"
 
@@ -482,12 +488,18 @@ def publish(
 
 def _normalize_version(version: str | None) -> str:
     if version:
-        return version
+        try:
+            return validate_canonical_version(version)
+        except ValueError as error:
+            raise PublishError(str(error)) from error
 
     tag = os.environ.get("GITHUB_REF_NAME")
     if not tag:
         raise PublishError("version was not provided and GITHUB_REF_NAME is unset")
-    return parse_release_tag(tag)
+    try:
+        return parse_release_tag(tag)
+    except ValueError as error:
+        raise PublishError(str(error)) from error
 
 
 def main(argv: list[str] | None = None) -> int:

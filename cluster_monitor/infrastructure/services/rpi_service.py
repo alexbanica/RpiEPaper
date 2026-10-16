@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import re
 import shutil
@@ -12,6 +13,34 @@ from cluster_monitor.domain.entities import ClusterHatStatusEntity, DiskUsageInf
 from cluster_monitor.domain.services import RpiServiceInterface
 
 RPI_TIME_FORMAT = "%H:%M"
+LOCAL_COMMAND_TIMEOUT_SECONDS = 10
+
+
+def _run_local_command(command: list[str], *, capture_stderr: bool = True) -> subprocess.CompletedProcess:
+    """Run a local command with bounded execution and deterministic pipe cleanup."""
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE if capture_stderr else None,
+        text=True,
+    )
+    try:
+        stdout, stderr = process.communicate(timeout=LOCAL_COMMAND_TIMEOUT_SECONDS)
+    except subprocess.TimeoutExpired:
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
+        finally:
+            process.wait()
+        raise
+    finally:
+        if process.stdout is not None:
+            process.stdout.close()
+        if process.stderr is not None:
+            process.stderr.close()
+
+    return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
 
 
 class RpiService(RpiServiceInterface):
@@ -35,11 +64,31 @@ class RpiService(RpiServiceInterface):
 
     def _get_my_ip_address(self) -> str:
         try:
-            output = subprocess.check_output(["ifconfig"], text=True)
+            result = _run_local_command(["ifconfig"], capture_stderr=False)
+            if result.returncode != 0:
+                raise subprocess.CalledProcessError(result.returncode, ["ifconfig"])
+            output = result.stdout
+            interface_blocks: dict[str, list[str]] = {}
+            current_interface: Optional[str] = None
+            for line in output.splitlines():
+                # Support both modern `eth0: flags=...` and net-tools
+                # `eth0      Link encap:...` headers. Address lines remain
+                # associated with only the header that precedes them.
+                # Include the full interface name so legacy alias headers such
+                # as `eth0:1: flags=...` start their own block. Selection below
+                # remains exact for eth0 and wlan0.
+                header = re.match(r"^(\S+?)(?::\s*flags=|\s+Link encap:)", line)
+                if header:
+                    current_interface = header.group(1)
+                    interface_blocks.setdefault(current_interface, []).append(line)
+                elif current_interface is not None:
+                    interface_blocks[current_interface].append(line)
+
             for interface in ["eth0", "wlan0"]:
-                match = re.search(rf"{interface}.*?inet\s+(\d+\.\d+\.\d+\.\d+)", output, re.DOTALL)
-                if match:
-                    return match.group(1)
+                for block in interface_blocks.get(interface, []):
+                    match = re.search(r"\binet\s+(?:addr:)?(\d{1,3}(?:\.\d{1,3}){3})\b", block)
+                    if match:
+                        return match.group(1)
             return "N/A"
         except Exception as error:
             logging.debug("Error retrieving IP address: %s", error)
@@ -116,10 +165,10 @@ class RpiService(RpiServiceInterface):
 
     def get_clusterhat_status(self) -> ClusterHatStatusEntity:
         try:
-            with subprocess.Popen(["clusterhat", "status"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
-                output, error = process.communicate()
-                if process.returncode != 0:
-                    raise RuntimeError(error)
+            result = _run_local_command(["clusterhat", "status"])
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr)
+            output = result.stdout
 
             hat_alert = 0
             px_count = 1
@@ -165,7 +214,15 @@ class RpiService(RpiServiceInterface):
         hostname = self.get_hostname().upper()
 
         fan_suffix = " [F]" if self.is_fan_on() else ""
-        return f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% T: {temperature:4.1f}°C{fan_suffix}"
+        if (
+            isinstance(temperature, (int, float))
+            and not isinstance(temperature, bool)
+            and math.isfinite(temperature)
+        ):
+            temperature_field = f"T: {temperature:4.1f}°C"
+        else:
+            temperature_field = "T: N/A"
+        return f"{hostname} - C: {cpu_usage:3.0f}% M: {ram_usage:3.0f}% H: {hdd_usage:3.0f}% {temperature_field}{fan_suffix}"
 
     def get_lines_from_file(self, filename: str, nr_lines: int = 10) -> list[str]:
         try:
@@ -189,15 +246,13 @@ class RpiService(RpiServiceInterface):
 
     def _restart_node_by_hostname(self, hostname: str) -> None:
         try:
-            with subprocess.Popen(["clusterhat", "off", hostname], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
-                _, error = process.communicate()
-                if process.returncode != 0:
-                    raise RuntimeError(error)
+            result = _run_local_command(["clusterhat", "off", hostname])
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr)
             sleep(2)
-            with subprocess.Popen(["clusterhat", "on", hostname], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as process:
-                _, error = process.communicate()
-                if process.returncode != 0:
-                    raise RuntimeError(error)
+            result = _run_local_command(["clusterhat", "on", hostname])
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr)
         except Exception as error:
             logging.error("Error restarting node %s: %s", hostname, error)
 
@@ -205,12 +260,14 @@ class RpiService(RpiServiceInterface):
         if self.cluster_hat_alert_enabled == enable:
             return
 
-        self.cluster_hat_alert_enabled = enable
         status = "on" if enable else "off"
         try:
-            subprocess.check_call(["clusterhat", "alert", status])
+            result = _run_local_command(["clusterhat", "alert", status])
+            if result.returncode != 0:
+                raise subprocess.CalledProcessError(result.returncode, ["clusterhat", "alert", status])
         except subprocess.CalledProcessError as error:
             raise RuntimeError(f"Failed to set clusterhat alert: {error}") from error
+        self.cluster_hat_alert_enabled = enable
 
     def render_logs(self, lines: list[str]) -> list[str]:
         processed_lines: list[str] = []

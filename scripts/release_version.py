@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import re
 import shutil
@@ -17,6 +18,17 @@ _BETA_TAG_RE = re.compile(
 )
 _PROJECT_VERSION_RE = re.compile(r'^\s*version\s*=\s*"[^"]+"\s*$')
 _RUNTIME_VERSION_RE = re.compile(r'__version__\s*=\s*"[^"]+"')
+_CANONICAL_VERSION_RE = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:b([1-9][0-9]*))?$"
+)
+
+
+def validate_canonical_version(version: str) -> str:
+    """Return a stable or PEP 440 beta version in canonical form."""
+
+    if not isinstance(version, str) or not _CANONICAL_VERSION_RE.fullmatch(version):
+        raise ValueError(f"Invalid canonical version: {version}")
+    return version
 
 
 def parse_release_tag(tag: str) -> str:
@@ -24,14 +36,60 @@ def parse_release_tag(tag: str) -> str:
 
     match = _STABLE_TAG_RE.match(tag)
     if match:
-        return ".".join(match.groups())
+        return validate_canonical_version(".".join(match.groups()))
 
     match = _BETA_TAG_RE.match(tag)
     if match:
         major, minor, patch, beta = match.groups()
-        return f"{major}.{minor}.{patch}b{beta}"
+        return validate_canonical_version(f"{major}.{minor}.{patch}b{beta}")
 
     raise ValueError(f"Invalid release tag: {tag}")
+
+
+def read_runtime_version(source: bytes) -> str:
+    """Read a literal ``__version__`` assignment without executing source."""
+
+    try:
+        tree = ast.parse(source.decode("utf-8"))
+    except (UnicodeDecodeError, SyntaxError, ValueError) as error:
+        raise ValueError("unable to parse packaged runtime version source") from error
+
+    def assigns_version(target: ast.expr) -> bool:
+        if isinstance(target, ast.Name):
+            return target.id == "__version__"
+        if isinstance(target, (ast.Tuple, ast.List)):
+            return any(assigns_version(element) for element in target.elts)
+        if isinstance(target, ast.Starred):
+            return assigns_version(target.value)
+        return False
+
+    assignments = []
+    for node in ast.walk(tree):
+        targets: tuple[ast.expr, ...] = ()
+        if isinstance(node, ast.Assign):
+            targets = tuple(node.targets)
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)):
+            targets = (node.target,)
+        if any(assigns_version(target) for target in targets):
+            assignments.append(node)
+
+    if len(assignments) != 1 or assignments[0] not in tree.body:
+        raise ValueError(
+            "expected exactly one direct module-level __version__ assignment, "
+            f"found {len(assignments)}"
+        )
+    assignment = assignments[0]
+    if (
+        not isinstance(assignment, ast.Assign)
+        or len(assignment.targets) != 1
+        or not isinstance(assignment.targets[0], ast.Name)
+        or assignment.targets[0].id != "__version__"
+    ):
+        raise ValueError("packaged __version__ must use a direct name assignment")
+    value = assignment.value
+    if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
+        raise ValueError("packaged __version__ must be a string literal")
+    return value.value
 
 
 def _replace_version_line(

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Optional
 
 
 @dataclass
@@ -13,7 +13,7 @@ class DockerStatusEntity:
     mode: dict[str, Any]
     image: str
     ports: list[dict[str, Any]]
-    replicas: int
+    replicas: Optional[int]
     running_replicas: int
     deployed_to: list[str]
 
@@ -27,7 +27,8 @@ class DockerStatusEntity:
 
     @property
     def image_tag(self) -> str:
-        return self.image_short.rsplit(":", 1)[-1] if ":" in self.image_short else "-"
+        image_name = self.image_short.rsplit("/", 1)[-1]
+        return image_name.rsplit(":", 1)[-1] if ":" in image_name else "-"
 
     @property
     def image_tag_short(self) -> str:
@@ -59,5 +60,5 @@ class DockerStatusEntity:
             "image": self.image_tag_short,
             "ports": ports,
             "deployed_to": "global" if "Global" in self.mode else ",".join(self.deployed_to),
-            "replicas": f"{self.running_replicas}/{self.replicas}",
+            "replicas": f"{self.running_replicas}/{self.replicas if self.replicas is not None else '-'}",
         }

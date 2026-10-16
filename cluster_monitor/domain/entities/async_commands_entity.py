@@ -23,6 +23,7 @@ class AsyncCommandsEntity:
     def close(self) -> None:
         for command in self.commands.values():
             command.running = False
+            command.mark_initial_collection_complete()
             command.results = {}
         for command in self.commands.values():
             command.thread.join()

@@ -1,9 +1,15 @@
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 
 from cluster_monitor.shared.constants import NULL_COORDS, RENDER_ALIGN_LEFT
 
 
 class RendererInterface(ABC):
+    @contextmanager
+    def frame_transaction(self):
+        """Group frame preparation, drawing, and application as one operation."""
+        yield
+
     @abstractmethod
     def draw_text(
         self,

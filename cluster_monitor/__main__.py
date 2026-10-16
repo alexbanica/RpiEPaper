@@ -16,9 +16,9 @@ def main() -> int:
         MonitorClientService(RpiService()).render(context)
         return 0
 
-    from cluster_monitor.application.services.runtime_service import RuntimeService
+    from cluster_monitor.presentation.controllers.runtime_controller import RuntimeController
 
-    RuntimeService().run(context)
+    RuntimeController().run(context)
     return 0
 
 
