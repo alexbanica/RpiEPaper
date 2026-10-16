@@ -17,7 +17,12 @@ from typing import Dict, Iterator
 import tarfile
 import zipfile
 
-from scripts.release_version import prepare_release_tree
+from scripts.release_version import (
+    parse_release_tag,
+    prepare_release_tree,
+    read_runtime_version,
+    validate_canonical_version,
+)
 
 REQUIRED_LIBS = {
     "waveshare_epd/DEV_Config_32.so": (1, 40),
@@ -276,6 +281,15 @@ def _validate_metadata(
         if hashlib.sha256(payload).digest() != hashlib.sha256(source_hashes[path]).digest():
             raise ValueError(f"{artifact.name}: byte mismatch for {path}")
 
+    runtime_version = read_runtime_version(
+        normalized_members["cluster_monitor/__init__.py"]
+    )
+    if runtime_version != version:
+        raise ValueError(
+            f"{artifact.name}: runtime version mismatch: expected {version}, "
+            f"got {runtime_version}"
+        )
+
 
 def _run_build(command: list[str], cwd: Path) -> None:
     result = subprocess.run(
@@ -315,16 +329,35 @@ def _collect_artifacts(output_dir: Path) -> list[Path]:
     return sorted(p for p in output_dir.iterdir() if p.is_file())
 
 
-def _clear_output_dir(output_dir: Path) -> None:
+def _clear_output_dir(output_dir: Path, expected_names: tuple[str, ...]) -> Path:
+    # Reject the selected path itself before resolving it, since resolve() would
+    # otherwise silently redirect output into a symlink target.
+    if output_dir.is_symlink():
+        raise ValueError(f"Output directory must not be a symlink: {output_dir}")
+
+    output_dir = output_dir.resolve()
     if not output_dir.exists():
         output_dir.mkdir(parents=True)
-        return
+        return output_dir
 
-    for path in output_dir.iterdir():
-        if path.is_file():
-            path.unlink()
-        elif path.is_dir():
-            raise ValueError(f"Output directory is not empty: {output_dir}")
+    expected = set(expected_names)
+    entries = list(output_dir.iterdir())
+    invalid: list[str] = []
+    for path in entries:
+        if path.name not in expected:
+            invalid.append(path.name)
+        elif path.is_symlink() or not path.is_file():
+            invalid.append(path.name)
+
+    if invalid:
+        raise ValueError(
+            f"Output directory contains entries that cannot be replaced: {sorted(invalid)}"
+        )
+
+    # Delete only after the complete directory passed preflight.
+    for path in entries:
+        path.unlink()
+    return output_dir
 
 
 def _validate_artifact_set(
@@ -352,9 +385,9 @@ def _validate_artifact_set(
 
 
 def _build(output_dir: Path, project_root: Path) -> int:
-    output_dir = output_dir.resolve()
-    _clear_output_dir(output_dir)
     project_name, version = _read_project_metadata(project_root)
+    expected_names = _expected_artifact_names(project_name, version)
+    output_dir = _clear_output_dir(output_dir, expected_names)
     with _temporary_source_tree(project_root) as source_root:
         _build_with_setup_py(source_root, output_dir, None)
         for platform in WHEEL_PLATFORMS:
@@ -392,21 +425,59 @@ def _validate_artifact_names_and_metadata(
         raise ValueError(f"{artifact.name}: unexpected sdist version {sdist_version}")
 
 
-def verify(artifact: Path) -> int:
-    project_root = Path(__file__).resolve().parents[1]
-    project_name, version = _read_project_metadata(project_root)
+def validate_artifact(
+    artifact: Path,
+    expected_version: str,
+    project_root: Path | None = None,
+) -> None:
+    """Validate one release artifact against a canonical expected version.
 
-    artifacts = [artifact]
-    for built_artifact in artifacts:
-        _validate_artifact_names_and_metadata(project_name, version, built_artifact)
-        members = _read_archive_members(built_artifact)
-        _validate_metadata(
-            built_artifact,
-            members,
-            project_name,
-            version,
-            _source_hashes(project_root),
+    This public helper is shared with local publication validation. It reads
+    archive bytes only and never imports packaged code.
+    """
+
+    root = Path(project_root) if project_root is not None else Path(__file__).resolve().parents[1]
+    project_name, _ = _read_project_metadata(root)
+    version = validate_canonical_version(expected_version)
+    artifact = Path(artifact)
+    _validate_artifact_names_and_metadata(project_name, version, artifact)
+    members = _read_archive_members(artifact)
+    _validate_metadata(
+        artifact,
+        members,
+        project_name,
+        version,
+        _source_hashes(root),
+    )
+
+
+def validate_release_artifacts(
+    artifacts: list[Path],
+    expected_version: str,
+    project_root: Path | None = None,
+) -> list[Path]:
+    """Validate the exact three release artifacts and return their paths."""
+
+    root = Path(project_root) if project_root is not None else Path(__file__).resolve().parents[1]
+    project_name, _ = _read_project_metadata(root)
+    version = validate_canonical_version(expected_version)
+    selected = sorted((Path(artifact) for artifact in artifacts), key=lambda p: p.name)
+    expected_names = sorted(_expected_artifact_names(project_name, version))
+    actual_names = [artifact.name for artifact in selected]
+    if actual_names != expected_names:
+        raise ValueError(
+            f"Unexpected artifact set: {actual_names} != {expected_names}"
         )
+    for artifact in selected:
+        validate_artifact(artifact, version, root)
+    return selected
+
+
+def verify(artifact: Path, release_tag: str | None = None) -> int:
+    project_root = Path(__file__).resolve().parents[1]
+    _, checkout_version = _read_project_metadata(project_root)
+    version = parse_release_tag(release_tag) if release_tag is not None else checkout_version
+    validate_artifact(artifact, version, project_root)
     return 0
 
 
@@ -419,7 +490,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.verify:
         try:
-            return verify(args.verify)
+            return verify(args.verify, args.release_tag)
         except ValueError as error:
             print(str(error), file=sys.stderr)
             return 1

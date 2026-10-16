@@ -78,8 +78,14 @@ class DockerService(DockerServiceInterface):
             tasks = self.get_tasks_for_service(service.id)
             node_hostnames = [
                 node.attrs.get("Description", {}).get("Hostname", "")
-                for node in self._get_nodes_for_service(service.id)
+                for node in self._get_nodes_for_service(tasks)
             ]
+            mode = service.attrs.get("Spec", {}).get("Mode", {})
+            replicas = (
+                None
+                if "Global" in mode
+                else mode.get("Replicated", {}).get("Replicas", 5)
+            )
 
             service_details.append(
                 DockerStatusEntity(
@@ -88,10 +94,10 @@ class DockerService(DockerServiceInterface):
                     id=service.id,
                     created=service.attrs.get("CreatedAt", ""),
                     updated=service.attrs.get("UpdatedAt", ""),
-                    mode=service.attrs.get("Spec", {}).get("Mode", {}),
+                    mode=mode,
                     image=service.attrs.get("Spec", {}).get("TaskTemplate", {}).get("ContainerSpec", {}).get("Image", ""),
                     ports=ports,
-                    replicas=service.attrs.get("Spec", {}).get("Mode", {}).get("Replicated", {}).get("Replicas", 5),
+                    replicas=replicas,
                     running_replicas=sum(1 for task in tasks if task.get("Status", {}).get("State") == "running"),
                     deployed_to=node_hostnames,
                 )
@@ -134,8 +140,7 @@ class DockerService(DockerServiceInterface):
     def get_tasks_for_service(self, service_id: str) -> list[dict[str, Any]]:
         return self.low_level_client.tasks(filters={"service": service_id})
 
-    def _get_nodes_for_service(self, service_id: str) -> list[Any]:
-        service_tasks = self.get_tasks_for_service(service_id)
+    def _get_nodes_for_service(self, service_tasks: list[dict[str, Any]]) -> list[Any]:
         node_ids = [task.get("NodeID") for task in service_tasks if task.get("Status", {}).get("State") == "running"]
         return [node for node in self.nodes if node.id in node_ids]
 

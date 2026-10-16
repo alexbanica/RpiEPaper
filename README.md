@@ -193,11 +193,35 @@ All artifacts include these required Waveshare files:
 
 The release process is immutable per version: an existing package version in Forgejo is not overwritten.
 
-### Anonymous post-publish verification
+### Pre-upload validation and anonymous post-publish verification
 
-The publish workflow first performs the same credential-free,
-dependency-resolving install documented above. It then checks both published
-platform wheels independently from the routed install index:
+Before upload, the publisher validates the exact stable or beta release version,
+the three expected archives, distribution metadata, runtime version, package
+resources, native-library bytes and ELF contracts, wheel tags and RECORD files.
+Twine validation also runs before the upload boundary. A local validation error
+prevents upload. The builder resolves the selected output directory once and
+preflights all its entries before deleting anything: only existing regular,
+nonsymlink artifacts named for the requested version may be replaced. Other
+files, other-version artifacts, symlinks, directories and special entries cause
+preflight failure with existing contents preserved. This does not promise to
+restore old expected artifacts if a subsequent build fails.
+
+To verify one artifact against the requested release tag, pass both options;
+the tag selects the canonical expected version without changing checkout
+metadata or building an artifact:
+
+```bash
+python -m scripts.package_artifacts \
+  --verify dist/cluster_monitor-1.2.3b4-py3-none-linux_aarch64.whl \
+  --release-tag 1.2.3-beta4
+```
+
+Without `--release-tag`, verification uses the version in the checkout.
+
+Local archive validation establishes those checks on the selected files; it does
+not establish that Forgejo accepted or serves them. After upload, the workflow
+performs the credential-free, dependency-resolving install documented above,
+then checks both published platform wheels independently from the routed index:
 
 ```bash
 python -m pip install "cluster-monitor==<version>" --no-deps \
@@ -211,9 +235,16 @@ python -m pip install "cluster-monitor==<version>" --no-deps \
 
 Replace `<version>` with either `X.Y.Z` or `X.Y.ZbN`.
 
+These anonymous checks establish that the routed index resolves the uploaded
+package and that both platform wheels install with the expected packaged
+resources and runtime version. They do not prove native execution or physical
+display behavior on target hardware.
+
 ### Artifact and verification boundary
 
-- Static checks validate check tags, artifact set, `.so` inclusion, and byte identity.
+- Local archive checks validate the exact artifact set, distribution and runtime
+  versions, `.so` and package-resource contents and byte identity, platform
+  metadata, and wheel RECORD integrity before upload.
 - The anonymous install verification confirms package resolution and packaged bytes for both
   platform wheels.
 - It does not replace runtime validation on Raspberry Pi, Jetson, or Sunrise X3 hardware.
@@ -227,6 +258,8 @@ protection, or native execution on Raspberry Pi/ePaper, Jetson, or Sunrise X3
 hardware. Treat those as pending operational verification. Static archive and
 byte checks do not prove that the packaged native libraries load or that display,
 SSH, Docker, sensor, and renderer integrations work on target hardware.
+For this delivery, the user explicitly instructed: “Defer physical validation for
+this delivery.” No physical display or button success was established.
 
 ## Usage
 
@@ -240,6 +273,54 @@ Run monitor client mode:
 python -m cluster_monitor -mc
 python -m cluster_monitor -mc-hdd
 ```
+
+## Runtime behavior and operational limits
+
+`RuntimeController` is the outer composition point: it loads configuration,
+performs ePaper GPIO discovery before Waveshare imports when needed, creates
+the concrete adapters and renderer, then injects their domain-facing contracts
+into application orchestration. It owns partially created resources if startup
+composition fails; after monitor construction, the monitor owns normal cleanup.
+Monitor-client mode bypasses the full monitor, Docker and ePaper setup. Console
+mode does not import Waveshare hardware or discover GPIO.
+
+Remote collection treats a completed first poll with no hosts or no results as
+complete, so an empty result does not keep the display on a loading screen.
+Remote command exit status determines success: status zero keeps stdout even
+when stderr contains a warning; nonzero, missing or invalid status is a
+per-host failure. Client and result updates use coordinated ownership and
+readers receive stable naturally sorted snapshots. Health and result queries,
+and hostname-update submissions, remain responsive while SSH execution or
+connection setup is blocked. Closing still waits for active SSH work to return
+before connection cleanup completes. SSH command execution and stream reads
+remain unbounded, and the existing SSH host-key policy remains in effect; no
+bounded shutdown or trusted-host verification is implied.
+
+Local `ifconfig` and `clusterhat` commands have a 10-second deadline. On
+timeout, the child is killed and reaped and its pipes are closed. This applies
+separately to status, each alert change and each restart off/on command; the
+restart-on command is skipped if its off command fails. Alert state advances
+only after a successful command, so a failed transition is retried next time.
+Unavailable or malformed temperature renders as `T: N/A`. IP selection uses
+IPv4 from the exact `eth0` block first, then exact `wlan0`, otherwise `N/A`.
+
+Sparse external YAML overrides preserve unspecified effective renderer and
+supervisor values as well as SSH settings. Packaged defaults load first, then
+the established external files; `CLUSTER_MONITOR_CONFIG_FILE` selects one exact
+final override and still fails if that file is missing.
+
+ePaper frame drawing, page refresh and periodic hard refresh are serialized.
+Closing wakes and joins the periodic worker before final panel cleanup. Monitor
+shutdown attempts owned renderer, supervisor, Docker and remote cleanup even if
+the HAT is off or an earlier cleanup step fails; errors remain observable.
+Existing remote SSH calls, vendor display operations and other external calls
+can still block, so overall shutdown is not bounded.
+
+Docker service details use one task snapshot per service extraction. Image tags
+are taken from the final image path component after any digest is removed, so a
+registry port is not mistaken for a tag. Global services show running replicas
+as `running/-` (including `0/-`); replicated services show their configured
+target.
 
 ## Configuration
 

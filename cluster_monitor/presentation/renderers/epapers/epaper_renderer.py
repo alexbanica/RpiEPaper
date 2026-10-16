@@ -1,7 +1,7 @@
 import logging
 import os
 import threading
-import time
+from contextlib import contextmanager
 
 from PIL import Image, ImageDraw, ImageFont
 from waveshare_epd import epd2in7_V2
@@ -31,28 +31,80 @@ def cleanup_epaper() -> None:
 
 class EpaperRenderer(AbstractRenderer):
     def __init__(self, context: ContextEntity):
-        self.epd = epd2in7_V2.EPD()
-        self.font_type = ImageFont.truetype(os.path.join(RESOURCES_DIR, "Font.ttc"), DEFAULT_FONT_SIZE)
-        self.himage = Image.new("1", (self.epd.height, self.epd.width), COLOR_WHITE)
-        self.draw = ImageDraw.Draw(self.himage)
-        self.controller = EpaperController(context)
-        self.init_interval = context.renderer_init_interval_sec
-        self.hard_refresh(True)
-        self.init_thread = threading.Thread(target=self._run_periodic_init_task, daemon=True)
-        self.init_thread.start()
+        self._frame_lock = threading.RLock()
+        self._stop_event = threading.Event()
+        self._state_lock = threading.Condition()
+        self._closing = False
+        self._closed = False
+        self._deferred_close = False
+        self._finishing_close = False
+        self._close_error = None
+        self._close_owner = None
+        self.init_thread = None
+        try:
+            self.epd = epd2in7_V2.EPD()
+            self.font_type = ImageFont.truetype(os.path.join(RESOURCES_DIR, "Font.ttc"), DEFAULT_FONT_SIZE)
+            self.himage = Image.new("1", (self.epd.height, self.epd.width), COLOR_WHITE)
+            self.draw = ImageDraw.Draw(self.himage)
+            self.controller = EpaperController(context)
+            self.init_interval = context.renderer_init_interval_sec
+            self.hard_refresh(True)
+            if self.init_interval > 0:
+                worker = threading.Thread(target=self._run_periodic_init_task, daemon=True)
+                worker.start()
+                self.init_thread = worker
+        except BaseException:
+            self._closing = True
+            self._stop_event.set()
+            try:
+                self._finish_close()
+            except BaseException:
+                logging.exception("ePaper cleanup after initialization failure also failed")
+            try:
+                cleanup_epaper()
+            except BaseException:
+                logging.exception("ePaper hardware cleanup after initialization failure failed")
+            raise
+
+    @contextmanager
+    def frame_transaction(self):
+        deferred = False
+        try:
+            with self._frame_lock:
+                self._ensure_open()
+                try:
+                    yield
+                finally:
+                    deferred = self._deferred_close
+        finally:
+            # Run even when drawing raises, after releasing the frame lock.
+            if deferred:
+                self._finish_close()
+
+    def _ensure_open(self) -> None:
+        with self._state_lock:
+            if self._closing or self._closed:
+                raise RuntimeError("EpaperRenderer is closing")
 
     def hard_refresh(self, skip_sleep: bool = False) -> None:
-        if not skip_sleep:
-            self.epd.sleep()
-        self.epd.init()
-        self.epd.Clear()
-        self.epd.display_Base_color(COLOR_WHITE)
-        self.refresh()
+        with self._frame_lock:
+            self._ensure_open()
+            if not skip_sleep:
+                self.epd.sleep()
+            self.epd.init()
+            self.epd.Clear()
+            self.epd.display_Base_color(COLOR_WHITE)
+            self.refresh()
 
     def _run_periodic_init_task(self) -> None:
-        while self.init_interval > 0:
-            time.sleep(self.init_interval)
-            self.hard_refresh()
+        while not self._stop_event.wait(self.init_interval):
+            with self._frame_lock:
+                if self._stop_event.is_set():
+                    return
+                try:
+                    self.hard_refresh()
+                except RuntimeError:
+                    return
 
     def draw_text(
         self,
@@ -203,12 +255,77 @@ class EpaperRenderer(AbstractRenderer):
         return DEFAULT_SECTION_X_PADDING, start_y, self.epd.height - DEFAULT_SECTION_X_PADDING, current_y
 
     def close(self) -> None:
-        self.controller.close()
-        self.init_interval = 0
-        self.epd.init()
-        self.epd.Clear()
-        self.epd.sleep()
+        current = threading.get_ident()
+        with self._state_lock:
+            if self._closed:
+                if self._close_error is not None:
+                    raise self._close_error
+                return
+            if self._closing:
+                if self._close_owner == current:
+                    return
+                if self._frame_lock._is_owned():
+                    self._deferred_close = True
+                    return
+                while not self._closed:
+                    self._state_lock.wait()
+                if self._close_error is not None:
+                    raise self._close_error
+                return
+            self._closing = True
+            self._stop_event.set()
+            if self._frame_lock._is_owned():
+                self._deferred_close = True
+                return
+        self._finish_close()
+
+    def _finish_close(self) -> None:
+        current = threading.get_ident()
+        with self._state_lock:
+            if self._closed:
+                if self._close_error is not None:
+                    raise self._close_error
+                return
+            if self._finishing_close:
+                if self._close_owner == current:
+                    return
+                while not self._closed:
+                    self._state_lock.wait()
+                if self._close_error is not None:
+                    raise self._close_error
+                return
+            self._finishing_close = True
+            self._close_owner = current
+        failures = []
+        worker = self.init_thread
+        if worker is not None and worker is not threading.current_thread():
+            worker.join()
+        with self._frame_lock:
+            controller = getattr(self, "controller", None)
+            if controller is not None:
+                try:
+                    controller.close()
+                except Exception as error:
+                    failures.append(error)
+                    logging.exception("ePaper controller cleanup failed")
+            epd = getattr(self, "epd", None)
+            if epd is not None:
+                for label, action in (("init", epd.init), ("clear", epd.Clear), ("sleep", epd.sleep)):
+                    try:
+                        action()
+                    except Exception as error:
+                        failures.append(error)
+                        logging.exception("ePaper final %s failed", label)
+        with self._state_lock:
+            self._close_error = failures[0] if failures else None
+            self._closed = True
+            self._deferred_close = False
+            self._finishing_close = False
+            self._close_owner = None
+            self._state_lock.notify_all()
         logging.info("EpaperRenderer closed")
+        if failures:
+            raise failures[0]
 
     @staticmethod
     def shutdown() -> None:

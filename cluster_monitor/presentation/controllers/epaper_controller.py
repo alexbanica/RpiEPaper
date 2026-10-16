@@ -9,24 +9,75 @@ from cluster_monitor.domain.entities import ContextEntity
 
 class EpaperController:
     def __init__(self, context: ContextEntity):
-        self.key1 = Button(5)
-        self.key2 = Button(6)
-        self.key3 = Button(13)
-        self.key4 = Button(19)
+        buttons = []
+        try:
+            self.key1 = Button(5)
+            buttons.append(self.key1)
+            self.key2 = Button(6)
+            buttons.append(self.key2)
+            self.key3 = Button(13)
+            buttons.append(self.key3)
+            self.key4 = Button(19)
+            buttons.append(self.key4)
 
-        self.running = True
-        self.current_page = context.default_page
-        self.scroll_offset = 0
-        self.scroll_step = 5
+            self.running = True
+            self._close_condition = threading.Condition()
+            self._closed = False
+            self._close_owner = None
+            self._close_error = None
+            self.current_page = context.default_page
+            self.scroll_offset = 0
+            self.scroll_step = 5
 
-        self.thread = threading.Thread(target=self._check_epaper_key_pressed_task, daemon=True)
-        self.thread.start()
+            self.thread = threading.Thread(target=self._check_epaper_key_pressed_task, daemon=True)
+            self.thread.start()
+        except BaseException:
+            for button in buttons:
+                try:
+                    button.close()
+                except Exception:
+                    logging.exception("Failed to close partially initialized ePaper button")
+            raise
         logging.info("ePaper update thread [%s] started.", self.thread.name)
 
     def close(self) -> None:
-        self.running = False
-        self.thread.join()
+        current = threading.get_ident()
+        with self._close_condition:
+            if self._closed:
+                if self._close_error is not None:
+                    raise self._close_error
+                return
+            if self._close_owner is not None:
+                if self._close_owner == current:
+                    return
+                while not self._closed:
+                    self._close_condition.wait()
+                if self._close_error is not None:
+                    raise self._close_error
+                return
+            self._close_owner = current
+            self.running = False
+        failures = []
+        if self.thread is not threading.current_thread():
+            try:
+                self.thread.join()
+            except Exception as error:
+                failures.append(error)
+                logging.exception("Failed to join ePaper button thread")
+        for button in (self.key1, self.key2, self.key3, self.key4):
+            try:
+                button.close()
+            except Exception as error:
+                failures.append(error)
+                logging.exception("Failed to close ePaper button")
+        with self._close_condition:
+            self._close_error = failures[0] if failures else None
+            self._closed = True
+            self._close_owner = None
+            self._close_condition.notify_all()
         logging.info("Thread %s: finished", self.thread.name)
+        if failures:
+            raise failures[0]
 
     def _check_epaper_key_pressed_task(self) -> None:
         while self.running:
