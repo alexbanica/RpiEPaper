@@ -1,4 +1,5 @@
 import logging
+import io
 import math
 import os
 import re
@@ -14,6 +15,8 @@ from cluster_monitor.domain.services import RpiServiceInterface
 
 RPI_TIME_FORMAT = "%H:%M"
 LOCAL_COMMAND_TIMEOUT_SECONDS = 10
+LOG_TAIL_BLOCK_SIZE = 8192
+_UNIVERSAL_NEWLINE_BYTES = re.compile(rb"\r\n|\r|\n")
 
 
 def _run_local_command(command: list[str], *, capture_stderr: bool = True) -> subprocess.CompletedProcess:
@@ -226,8 +229,46 @@ class RpiService(RpiServiceInterface):
 
     def get_lines_from_file(self, filename: str, nr_lines: int = 10) -> list[str]:
         try:
-            with open(filename, "r", encoding="utf-8") as file:
-                return [line.rstrip() for line in file.readlines()[-nr_lines:]]
+            if nr_lines <= 0:
+                with open(filename, "r", encoding="utf-8") as file:
+                    return [line.rstrip() for line in file.readlines()[-nr_lines:]]
+
+            with open(filename, "rb") as file:
+                end = file.seek(0, os.SEEK_END)
+                start = end
+                blocks = []
+                newline_count = 0
+                # One extra delimiter lets the raw suffix start at the boundary
+                # before the requested lines when the file is longer.
+                while start > 0 and newline_count < nr_lines + 1:
+                    block_start = max(0, start - LOG_TAIL_BLOCK_SIZE)
+                    file.seek(block_start)
+                    block = file.read(start - block_start)
+                    if not block:
+                        break
+                    block_newlines = len(_UNIVERSAL_NEWLINE_BYTES.findall(block))
+                    if blocks and block.endswith(b"\r") and blocks[-1].startswith(b"\n"):
+                        block_newlines -= 1
+                    newline_count += block_newlines
+                    blocks.append(block)
+                    start = block_start
+
+                suffix = bytearray(b"".join(reversed(blocks)))
+
+                # Select the raw byte boundary before decoding. A trailing
+                # newline closes the final line; otherwise the final bytes are
+                # an unterminated line. This also avoids decoding an unselected
+                # earlier line that may contain invalid UTF-8.
+                separators = list(_UNIVERSAL_NEWLINE_BYTES.finditer(suffix))
+                trailing_newline = suffix.endswith((b"\r", b"\n"))
+                boundary_index = nr_lines if trailing_newline else nr_lines - 1
+                if len(separators) > boundary_index:
+                    del suffix[:separators[-(boundary_index + 1)].end()]
+
+                text = suffix.decode("utf-8")
+                # Match text-mode universal newline splitting without treating
+                # Unicode separators such as U+0085 or U+2028 as line endings.
+                return [line.rstrip() for line in io.StringIO(text, newline=None).readlines()[-nr_lines:]]
         except Exception as error:
             logging.error("Error reading file %s: %s", filename, error)
             return []
