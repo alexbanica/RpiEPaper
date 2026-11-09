@@ -316,11 +316,32 @@ the HAT is off or an earlier cleanup step fails; errors remain observable.
 Existing remote SSH calls, vendor display operations and other external calls
 can still block, so overall shutdown is not bounded.
 
-Docker service details use one task snapshot per service extraction. Image tags
-are taken from the final image path component after any digest is removed, so a
-registry port is not mistaken for a tag. Global services show running replicas
-as `running/-` (including `0/-`); replicated services show their configured
-target.
+Docker node and service lists are fetched at startup. A background refresh then
+publishes each successful node fetch before collecting services and tasks, so a
+later collection failure does not discard refreshed nodes. It collects tasks in
+one bulk request and publishes service details as a snapshot. Detail and port
+readers use that snapshot without making Docker requests. Details
+start empty until the first successful refresh. A failed refresh keeps the last
+details, marks Docker unhealthy and retries on the next cycle; a successful empty
+refresh replaces stale details. The collector retains its two-second sleep, but
+an unbounded Docker call can extend a collection cycle. Image tags are taken
+from the final image path component after any digest is removed, so a registry
+port is not mistaken for a tag. Global services show running replicas as
+`running/-` (including `0/-`); replicated services show their configured target.
+
+Positive log-tail requests read backward in 8 KiB blocks and decode only the
+selected suffix, preserving UTF-8, universal newline handling and line
+whitespace trimming. Zero or negative line counts retain the legacy full-file
+read behavior. Each call opens a fresh file handle and stops at the file size
+captured when opened, so later appends appear on the next call. Concurrent
+rewrites or truncations are not a consistent snapshot; invalid UTF-8 in an
+unread earlier prefix is not checked.
+
+Local no-network smoke checks confirmed that Docker detail and port readers make
+zero task requests and each refresh makes one bulk request. The log-tail smoke
+read 8,192 bytes from a 1,400,028-byte fixture. Ruff, Python syntax compilation
+and the 10 existing domain tests passed; independent code, contract and final QA
+reviews completed. These checks do not establish a live speedup.
 
 ## Configuration
 

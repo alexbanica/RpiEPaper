@@ -1,3 +1,4 @@
+from copy import deepcopy
 import logging
 import threading
 import time
@@ -22,6 +23,8 @@ class DockerService(DockerServiceInterface):
         self.nodes: list[Any] = []
         self.running = True
         self._is_healthy = True
+        self._details_lock = threading.Lock()
+        self._service_details: list[DockerStatusEntity] = []
 
         self._update()
         self.thread = threading.Thread(target=self._docker_stats_update_task, daemon=True)
@@ -62,8 +65,19 @@ class DockerService(DockerServiceInterface):
         return natsorted(ports)
 
     def extract_service_details(self) -> list[DockerStatusEntity]:
+        with self._details_lock:
+            return deepcopy(self._service_details)
+
+    @staticmethod
+    def _build_service_details(
+        services: list[Any], nodes: list[Any], tasks: list[dict[str, Any]]
+    ) -> list[DockerStatusEntity]:
+        tasks_by_service: dict[str, list[dict[str, Any]]] = {}
+        for task in tasks:
+            tasks_by_service.setdefault(task.get("ServiceID", ""), []).append(task)
+
         service_details: list[DockerStatusEntity] = []
-        for service in self.services:
+        for service in services:
             ports: list[dict[str, Any]] = []
             if "Ports" in service.attrs.get("Endpoint", {}):
                 for port in service.attrs["Endpoint"]["Ports"]:
@@ -75,10 +89,10 @@ class DockerService(DockerServiceInterface):
                         }
                     )
 
-            tasks = self.get_tasks_for_service(service.id)
+            service_tasks = tasks_by_service.get(service.id, [])
             node_hostnames = [
                 node.attrs.get("Description", {}).get("Hostname", "")
-                for node in self._get_nodes_for_service(tasks)
+                for node in DockerService._get_nodes_for_service(service_tasks, nodes)
             ]
             mode = service.attrs.get("Spec", {}).get("Mode", {})
             replicas = (
@@ -98,7 +112,7 @@ class DockerService(DockerServiceInterface):
                     image=service.attrs.get("Spec", {}).get("TaskTemplate", {}).get("ContainerSpec", {}).get("Image", ""),
                     ports=ports,
                     replicas=replicas,
-                    running_replicas=sum(1 for task in tasks if task.get("Status", {}).get("State") == "running"),
+                    running_replicas=sum(1 for task in service_tasks if task.get("Status", {}).get("State") == "running"),
                     deployed_to=node_hostnames,
                 )
             )
@@ -118,8 +132,14 @@ class DockerService(DockerServiceInterface):
     def _docker_stats_update_task(self) -> None:
         while self.running:
             try:
-                self.nodes = self.client.nodes.list()
-                self.services = self.client.services.list()
+                nodes = self.client.nodes.list()
+                self.nodes = nodes
+                services = self.client.services.list()
+                self.services = services
+                tasks = self.low_level_client.tasks()
+                details = self._build_service_details(services, nodes, tasks)
+                with self._details_lock:
+                    self._service_details = details
                 self._is_healthy = True
             except KeyboardInterrupt:
                 self.running = False
@@ -140,9 +160,10 @@ class DockerService(DockerServiceInterface):
     def get_tasks_for_service(self, service_id: str) -> list[dict[str, Any]]:
         return self.low_level_client.tasks(filters={"service": service_id})
 
-    def _get_nodes_for_service(self, service_tasks: list[dict[str, Any]]) -> list[Any]:
+    @staticmethod
+    def _get_nodes_for_service(service_tasks: list[dict[str, Any]], nodes: list[Any]) -> list[Any]:
         node_ids = [task.get("NodeID") for task in service_tasks if task.get("Status", {}).get("State") == "running"]
-        return [node for node in self.nodes if node.id in node_ids]
+        return [node for node in nodes if node.id in node_ids]
 
     def is_healthy(self) -> bool:
         if not self._is_healthy:
