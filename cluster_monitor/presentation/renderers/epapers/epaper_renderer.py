@@ -2,6 +2,7 @@ import logging
 import os
 import threading
 from contextlib import contextmanager
+from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont
 from waveshare_epd import epd2in7_V2
@@ -208,6 +209,10 @@ class EpaperRenderer(AbstractRenderer):
         data: list[dict],
         prev_coords: tuple[int, int, int, int],
         font_size: int = DEFAULT_TABLE_FONT_SIZE,
+        *,
+        column_widths: Optional[tuple[int, ...]] = None,
+        cell_padding: Optional[tuple[int, int]] = None,
+        column_alignments: Optional[tuple[str, ...]] = None,
     ) -> tuple[int, int, int, int]:
         header_border_width = 2
         internal_border_width = 1
@@ -216,17 +221,46 @@ class EpaperRenderer(AbstractRenderer):
         start_y += DEFAULT_SECTION_Y_PADDING
 
         available_width = self.epd.height - (2 * DEFAULT_SECTION_X_PADDING)
-        column_width = available_width // len(headers)
+        widths = column_widths if column_widths is not None else (available_width // len(headers),) * len(headers)
         current_y = start_y + header_border_width
-        header_height = font_size + 2 * DEFAULT_SECTION_Y_PADDING
+        horizontal_padding, vertical_padding = cell_padding or (0, DEFAULT_SECTION_Y_PADDING)
+        alignments = column_alignments or (RENDER_ALIGN_CENTER,) * len(headers)
+        header_height = font_size + 2 * vertical_padding
         table_font = ImageFont.truetype(os.path.join(RESOURCES_DIR, "Font.ttc"), font_size)
 
+        def cell_x(index: int) -> int:
+            return DEFAULT_SECTION_X_PADDING + sum(widths[:index])
+
+        def fit_cell(value: str, width: int) -> str:
+            if self.draw.textlength(value, font=table_font) <= width:
+                return value
+            ellipsis = "…"
+            if self.draw.textlength(ellipsis, font=table_font) > width:
+                return ""
+            fitted = value
+            while fitted and self.draw.textlength(fitted + ellipsis, font=table_font) > width:
+                fitted = fitted[:-1]
+            return fitted + ellipsis if fitted else ellipsis
+
+        def aligned_x(x: int, width: int, value: str, alignment: str) -> int:
+            text_width = self.draw.textlength(value, font=table_font)
+            if alignment == RENDER_ALIGN_LEFT:
+                return x + horizontal_padding
+            if alignment == RENDER_ALIGN_RIGHT:
+                return x + width - horizontal_padding - text_width
+            return x + (width - text_width) // 2
+
         for index, (_, header_text) in enumerate(headers.items()):
-            x = DEFAULT_SECTION_X_PADDING + (index * column_width)
-            text_width = self.draw.textlength(header_text, font=table_font)
-            text_x = x + (column_width - text_width) // 2
-            text_y = current_y + DEFAULT_SECTION_Y_PADDING
-            self.draw.text((text_x, text_y), header_text, font=table_font, fill=COLOR_BLACK)
+            x = cell_x(index)
+            column_width = widths[index]
+            text = (
+                fit_cell(header_text, max(0, column_width - 2 * horizontal_padding))
+                if column_widths is not None
+                else header_text
+            )
+            text_x = aligned_x(x, column_width, text, RENDER_ALIGN_CENTER)
+            text_y = current_y + vertical_padding
+            self.draw.text((text_x, text_y), text, font=table_font, fill=COLOR_BLACK)
 
         current_y += header_height
         self.draw.line(
@@ -236,13 +270,15 @@ class EpaperRenderer(AbstractRenderer):
         )
 
         for row in data:
-            row_height = font_size + 2 * DEFAULT_SECTION_Y_PADDING
+            row_height = font_size + 2 * vertical_padding
             for index, (key, _) in enumerate(headers.items()):
-                x = DEFAULT_SECTION_X_PADDING + (index * column_width)
+                x = cell_x(index)
+                column_width = widths[index]
                 cell = str(row.get(key, ""))
-                text_width = self.draw.textlength(cell, font=table_font)
-                text_x = x + (column_width - text_width) // 2
-                text_y = current_y + DEFAULT_SECTION_Y_PADDING
+                if column_widths is not None:
+                    cell = fit_cell(cell, max(0, column_width - 2 * horizontal_padding))
+                text_x = aligned_x(x, column_width, cell, alignments[index])
+                text_y = current_y + vertical_padding
                 self.draw.text((text_x, text_y), cell, font=table_font, fill=COLOR_BLACK)
 
             current_y += row_height
