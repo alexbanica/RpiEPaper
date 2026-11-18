@@ -224,3 +224,44 @@ Approval: Explicit user approval on 2026-11-18: “approve”, in response to th
 complete PLAN approval presentation at Checkpoint 06. Covers the full planned
 implementation, related unused-code cleanup, assurance, validation, documentation,
 and verified branch delivery, subject to fresh-session implement entry.
+
+## Amendment 1 — 2026-11-18 — generic table layout after PR feedback
+
+- Amendment ID: services-table-readability-PLAN-A1
+- Previous version: original approved PLAN
+- Approval: Automatically approved under the originating implement request; effective revision includes the original PLAN and this amendment.
+- Request and purpose: Owner comment https://github.com/alexbanica/RpiEPaper/pull/9#discussion_r4616046464 requires a generic renderer without knowledge of service-table content; the user requested handling PR feedback in the implementation session.
+
+### Changes against the previous version
+
+| Section / requirement | Before | After | Reason |
+| --- | --- | --- | --- |
+| Renderer contract and layout selection | Unchanged draw_table contracts; ePaper matches known service header keys and owns service widths | Extend RendererInterface and both concrete draw_table methods with optional keyword-only generic layout inputs: ordered column widths, horizontal/vertical cell padding, and column alignments. Existing omitted-input behavior remains unchanged. Console accepts layout inputs while retaining content-based sizing. The application caller supplies service-table widths 168/56/30, padding 2/3 and left/center/center alignment. ePaper never recognizes service keys or owns service-specific constants. | Remove content knowledge from generic renderer as explicitly requested by the owner. |
+| Ownership | Four implementation/test paths | Add cluster_monitor/domain/services/renderer_interface.py and cluster_monitor/presentation/renderers/console_renderer.py to the bounded repair; preserve all other ownership exclusions. | Keep producer and renderer contract signatures consistent. |
+| Assurance and validation | Original full implementation lifecycle | PR repair uses explorer mapping, developer correction and independent complete repair review with reinspection of supported corrections; domain suite, syntax, manual actual-renderer smoke for fixed and default layouts, console and diff checks. No non-domain automated tests. | Verify the generic contract and unchanged visible behavior. |
+
+### Preserved behavior and impact
+
+SPEC unchanged: fixed pixel geometry, measured ellipsis, five rows, compact release semantics, raw data, navigation and console output remain required. No external API/event change, new dependency, configuration knob, deployment or cluster mutation. Physical panel legibility and button scrolling remain unverified and required. Ruff has unchanged pre-existing findings; do not claim green lint. Retain the SPEC/PLAN pair pending acceptance. Optional layout inputs are internal per-call presentation data, not runtime configuration. Default table rendering keeps its original sizing, padding and alignment.
+
+### Approval record
+
+Automatically authorized on 2026-11-18 by the originating implement request for required implementation corrections, and explicitly grounded in the owner's PR comment and current request to handle feedback. This approves the complete effective PLAN including PLAN-A1; original content and Approved status are preserved. SPEC needs no amendment because its visible behavior and acceptance criteria are unchanged. Independent readiness assurance is required before source implementation; record its result below.
+
+### Requirement-to-delivery trace
+
+| Requirement | Repair boundary | Evidence |
+| --- | --- | --- |
+| Generic renderer from PR thread PRRT_kwDOObxhec65B5Qo | Renderer interface, ePaper, console, application table caller | No service key detection/constants in generic renderer; independent review |
+| SPEC Structured rendering and regression boundaries | Same caller and renderer paths; unchanged domain entity/controllers | Actual-renderer fixed/default/empty/partial smoke, console, domain suite and diff |
+| Acceptance and delivery | Parent-owned PR repair branch and thread | Verified non-force push to PR head; evidence reply and explicit resolution; physical checks remain pending |
+
+PLAN-A1 readiness assurance: independent plan-readiness-reviewer unit
+pr9-readiness reviewed the complete effective PLAN at pre-receipt SHA-256
+3fc35a72e95cd5e3854d38824cf0c727c35693d6500dbc1aed2cb1ec7d18a6eb
+against unchanged SPEC SHA-256
+ff6bd188e24cce94bc2be81f304c02d4e77436ae80c0a16d7817089451804976.
+No findings. Coverage included contract/call-site ownership, fixed/default/console
+behavior, validation, physical boundaries and PR delivery. This records advisory
+assurance, not a new behavior or approval. One capability remains affected;
+no multiple interacting business-domain architect trigger exists.

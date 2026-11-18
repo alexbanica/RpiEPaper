@@ -1,5 +1,6 @@
 import logging
 import time
+from typing import Optional
 
 from cluster_monitor.domain.entities import ContextEntity
 from cluster_monitor.presentation.renderers.abstract_renderer import (
@@ -102,7 +103,12 @@ class ConsoleRenderer(AbstractRenderer):
         headers: dict[str, str],
         data: list[dict],
         prev_coords: tuple[int, int, int, int],
+        *,
+        column_widths: Optional[tuple[int, ...]] = None,
+        cell_padding: Optional[tuple[int, int]] = None,
+        column_alignments: Optional[tuple[str, ...]] = None,
     ) -> tuple[int, int, int, int]:
+        _ = column_widths, cell_padding, column_alignments
         header_keys = list(headers.keys())
         col_widths = [len(headers[key]) for key in header_keys]
         for row in data:

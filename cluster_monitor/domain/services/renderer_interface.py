@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
+from typing import Optional
 
 from cluster_monitor.shared.constants import NULL_COORDS, RENDER_ALIGN_LEFT
 
@@ -79,6 +80,10 @@ class RendererInterface(ABC):
         headers: dict[str, str],
         data: list[dict],
         prev_coords: tuple[int, int, int, int],
+        *,
+        column_widths: Optional[tuple[int, ...]] = None,
+        cell_padding: Optional[tuple[int, int]] = None,
+        column_alignments: Optional[tuple[str, ...]] = None,
     ) -> tuple[int, int, int, int]:
         raise NotImplementedError
 

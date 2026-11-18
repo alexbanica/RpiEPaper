@@ -87,6 +87,9 @@ class ClusterMonitorService:
             {"name": "Name", "image": "Ver", "replicas": "R"},
             [service.to_dict() for service in visible_services],
             coords,
+            column_widths=(168, 56, 30),
+            cell_padding=(2, 3),
+            column_alignments=(RENDER_ALIGN_LEFT, RENDER_ALIGN_CENTER, RENDER_ALIGN_CENTER),
         )
 
     def draw_docker_stats_page_3(
