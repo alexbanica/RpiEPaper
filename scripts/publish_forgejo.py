@@ -224,6 +224,47 @@ def _run_dependency_install(
     return _run_command(command, env=_sanitize_pip_environment())
 
 
+def _verify_local_sdist_installation(
+    sdist: Path,
+    version: str,
+    simple_index_url: str,
+    target_root: Path,
+) -> subprocess.CompletedProcess:
+    """Install and validate the exact local sdist before publishing artifacts."""
+
+    target_root = Path(target_root)
+    target_root.mkdir(parents=True, exist_ok=False)
+    command = [
+        sys.executable,
+        "-m",
+        "pip",
+        "install",
+        str(Path(sdist).resolve()),
+        "--no-deps",
+        "--index-url",
+        simple_index_url,
+        "--target",
+        str(target_root.resolve()),
+        "--isolated",
+        "--no-input",
+        "--no-cache-dir",
+    ]
+    result = _run_command(command, env=_sanitize_pip_environment())
+    if result.returncode != 0:
+        raise PublishError("isolated local sdist pip install failed")
+
+    installed_libraries = [
+        target_root / "waveshare_epd" / name for name in REQUIRED_LIBRARY_FILES
+    ]
+    validate_installation(
+        target=target_root,
+        installed_libraries=installed_libraries,
+        version=version,
+        runtime_file=target_root / PROJECT_NAME / "__init__.py",
+    )
+    return result
+
+
 def _validate_dependency_install(version: str, target_root: Path) -> None:
     metadata = target_root / f"{PROJECT_NAME}-{version}.dist-info" / "METADATA"
     if not metadata.is_file():
@@ -468,6 +509,14 @@ def publish(
         check = _run_twine_check(artifacts)
         if getattr(check, "returncode", 1) != 0:
             raise PublishError("artifact validation failed")
+
+        sdist = next(path for path in artifacts if path.name.endswith(SDIST_SUFFIX))
+        _verify_local_sdist_installation(
+            sdist=sdist,
+            version=version,
+            simple_index_url=simple_index_url,
+            target_root=work_dir / "local-sdist-install",
+        )
 
         upload = _run_upload(artifacts, username, token, repository_url)
         if getattr(upload, "returncode", 1) != 0:
