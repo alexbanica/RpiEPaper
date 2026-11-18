@@ -84,7 +84,7 @@ class ClusterMonitorService:
         visible_services = services[start_index:end_index]
 
         return renderer.draw_table(
-            {"name": "Name", "image": "Img", "deployed_to": "Nodes", "ports": "Ports", "replicas": "R"},
+            {"name": "Name", "image": "Ver", "replicas": "R"},
             [service.to_dict() for service in visible_services],
             coords,
         )

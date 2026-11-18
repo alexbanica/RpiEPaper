@@ -320,7 +320,23 @@ Docker service details use one task snapshot per service extraction. Image tags
 are taken from the final image path component after any digest is removed, so a
 registry port is not mistaken for a tag. Global services show running replicas
 as `running/-` (including `0/-`); replicated services show their configured
-target.
+target. The ePaper services view uses the `Name`, `Ver`, and `R` columns. Its
+fixed widths are 168, 56, and 30 pixels on the 264-by-176 landscape drawing
+surface, with 5-pixel side margins, 2-pixel horizontal cell padding, 3-pixel
+vertical table padding, and a 10-pixel table font. Service names retain the
+existing stack-prefix removal. Cell text is shortened only when measured width
+requires an ellipsis; fitting uses the bundled font rather than a character
+count. The view no longer displays published ports or node placement, while
+their underlying service data remains available to other consumers.
+
+`Ver` is extracted from the configured service image reference: a leading
+numeric release with at least two dot-separated components is shown without an
+optional leading `v`; a complete lowercase `-alphaN`, `-betaN`, or `-rcN`
+prerelease token is retained, and later suffix tokens are omitted. A reference
+without a recognized release displays `-`. This configured image version does
+not prove that running tasks have completed a rollout to that image. Console
+service output keeps full service names and the compact release value without
+the ePaper view's pixel-based fitting.
 
 ## Configuration
 

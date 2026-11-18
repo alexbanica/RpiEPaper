@@ -23,6 +23,10 @@ DEFAULT_FONT_SIZE = 11
 DEFAULT_TABLE_FONT_SIZE = 10
 COLOR_WHITE = 0xFF
 COLOR_BLACK = 0x00
+SERVICE_TABLE_WIDTHS = (168, 56, 30)
+SERVICE_TABLE_HEADERS = ("name", "image", "replicas")
+TABLE_CELL_X_PADDING = 2
+SERVICE_TABLE_Y_PADDING = 3
 
 
 def cleanup_epaper() -> None:
@@ -215,17 +219,32 @@ class EpaperRenderer(AbstractRenderer):
         _, _, _, start_y = prev_coords
         start_y += DEFAULT_SECTION_Y_PADDING
 
+        service_table = tuple(headers) == SERVICE_TABLE_HEADERS
         available_width = self.epd.height - (2 * DEFAULT_SECTION_X_PADDING)
-        column_width = available_width // len(headers)
+        column_widths = SERVICE_TABLE_WIDTHS if service_table else (available_width // len(headers),) * len(headers)
         current_y = start_y + header_border_width
-        header_height = font_size + 2 * DEFAULT_SECTION_Y_PADDING
+        vertical_padding = SERVICE_TABLE_Y_PADDING if service_table else DEFAULT_SECTION_Y_PADDING
+        header_height = font_size + 2 * vertical_padding
         table_font = ImageFont.truetype(os.path.join(RESOURCES_DIR, "Font.ttc"), font_size)
 
+        def fit_cell(value: str, width: int) -> str:
+            if self.draw.textlength(value, font=table_font) <= width:
+                return value
+            ellipsis = "…"
+            fitted = value
+            while fitted and self.draw.textlength(fitted + ellipsis, font=table_font) > width:
+                fitted = fitted[:-1]
+            return fitted + ellipsis if fitted else ellipsis
+
+        def cell_x(index: int) -> int:
+            return DEFAULT_SECTION_X_PADDING + sum(column_widths[:index])
+
         for index, (_, header_text) in enumerate(headers.items()):
-            x = DEFAULT_SECTION_X_PADDING + (index * column_width)
+            x = cell_x(index)
+            column_width = column_widths[index]
             text_width = self.draw.textlength(header_text, font=table_font)
             text_x = x + (column_width - text_width) // 2
-            text_y = current_y + DEFAULT_SECTION_Y_PADDING
+            text_y = current_y + vertical_padding
             self.draw.text((text_x, text_y), header_text, font=table_font, fill=COLOR_BLACK)
 
         current_y += header_height
@@ -236,13 +255,16 @@ class EpaperRenderer(AbstractRenderer):
         )
 
         for row in data:
-            row_height = font_size + 2 * DEFAULT_SECTION_Y_PADDING
+            row_height = font_size + 2 * vertical_padding
             for index, (key, _) in enumerate(headers.items()):
-                x = DEFAULT_SECTION_X_PADDING + (index * column_width)
+                x = cell_x(index)
+                column_width = column_widths[index]
                 cell = str(row.get(key, ""))
+                if service_table:
+                    cell = fit_cell(cell, column_width - 2 * TABLE_CELL_X_PADDING)
                 text_width = self.draw.textlength(cell, font=table_font)
-                text_x = x + (column_width - text_width) // 2
-                text_y = current_y + DEFAULT_SECTION_Y_PADDING
+                text_x = x + TABLE_CELL_X_PADDING if service_table and index == 0 else x + (column_width - text_width) // 2
+                text_y = current_y + vertical_padding
                 self.draw.text((text_x, text_y), cell, font=table_font, fill=COLOR_BLACK)
 
             current_y += row_height

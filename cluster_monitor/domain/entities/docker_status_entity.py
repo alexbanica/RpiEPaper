@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
@@ -18,8 +19,8 @@ class DockerStatusEntity:
     deployed_to: list[str]
 
     @property
-    def name_short(self) -> str:
-        return (self.name.replace(f"{self.namespace}_", "") if self.namespace else self.name)[:9]
+    def display_name(self) -> str:
+        return self.name.replace(f"{self.namespace}_", "") if self.namespace else self.name
 
     @property
     def image_short(self) -> str:
@@ -31,9 +32,9 @@ class DockerStatusEntity:
         return image_name.rsplit(":", 1)[-1] if ":" in image_name else "-"
 
     @property
-    def image_tag_short(self) -> str:
-        tag = self.image_tag
-        return tag[:10] if len(tag) > 10 else tag
+    def image_release_version(self) -> str:
+        match = re.match(r"^v?(\d+(?:\.\d+)+(?:-(?:alpha|beta|rc)\d+)?)(?:-|$)", self.image_tag)
+        return match.group(1) if match else "-"
 
     @property
     def ports_short(self) -> list[str]:
@@ -47,18 +48,12 @@ class DockerStatusEntity:
         return value.strftime("%m/%d %H:%M")
 
     def to_dict(self) -> dict[str, Any]:
-        ports = ",".join(self.ports_short)
-        if len(self.ports_short) > 2:
-            ports = ",".join(self.ports_short[:2]) + "..."
-
         return {
-            "name": self.name_short,
+            "name": self.display_name,
             "id": self.id,
             "created": self.created_short,
             "updated": self.updated,
             "mode": self.mode,
-            "image": self.image_tag_short,
-            "ports": ports,
-            "deployed_to": "global" if "Global" in self.mode else ",".join(self.deployed_to),
+            "image": self.image_release_version,
             "replicas": f"{self.running_replicas}/{self.replicas if self.replicas is not None else '-'}",
         }
