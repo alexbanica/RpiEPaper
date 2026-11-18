@@ -15,7 +15,6 @@ if bdist_wheel is not None:
         def finalize_options(self):
             super().finalize_options()
             self.root_is_pure = False
-            self.abi_tag = "none"
             self.py_limited_api = False
 
         def get_tag(self):

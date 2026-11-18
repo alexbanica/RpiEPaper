@@ -206,6 +206,14 @@ files, other-version artifacts, symlinks, directories and special entries cause
 preflight failure with existing contents preserved. This does not promise to
 restore old expected artifacts if a subsequent build fails.
 
+Before upload, the publisher also installs the exact local source distribution
+using isolated build dependencies and a fresh target, with runtime dependency
+resolution disabled, then checks
+its installed metadata, runtime version, package resources and native-library
+bytes. Runtime dependencies are not needed for this preflight. A failed install
+or validation prevents upload. The existing ARM release wheel tags remain
+`py3-none-linux_armv7l` and `py3-none-linux_aarch64`.
+
 To verify one artifact against the requested release tag, pass both options;
 the tag selects the canonical expected version without changing checkout
 metadata or building an artifact:
